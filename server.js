@@ -4,6 +4,7 @@ const path = require("node:path");
 const dns = require("node:dns/promises");
 const tls = require("node:tls");
 const net = require("node:net");
+const toolAdapter = require("./API/toolAdapter");
 
 const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -231,6 +232,15 @@ function createServer() {
       } catch (error) {
         const status = error.name === "AbortError" ? 504 : 400;
         sendJson(response, status, { error: error.name === "AbortError" ? "Analyse-Zeitlimit ueberschritten." : error.message });
+      }
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/api/tools") {
+      try {
+        sendJson(response, 200, await toolAdapter.inventory());
+      } catch (error) {
+        sendJson(response, 500, { error: error.message });
       }
       return;
     }
