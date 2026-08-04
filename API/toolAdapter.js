@@ -46,23 +46,27 @@ function run(command, args, { timeoutMs = 8000 } = {}) {
   });
 }
 
-function detectWindowsTools() {
+function detectWindowsExecutables() {
   const exts = (process.env.PATHEXT || ".EXE;.BAT;.CMD").split(";").map((e) => e.toLowerCase());
   const dirs = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
-  const found = [];
+  const found = new Set();
 
-  for (const tool of ALLOW) {
-    const hit = dirs.some((dir) => {
-      try {
-        if (fs.existsSync(path.join(dir, tool))) return true;
-        return exts.some((ext) => fs.existsSync(path.join(dir, tool + ext)));
-      } catch {
-        return false;
+  for (const dir of dirs) {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const ext = path.extname(entry).toLowerCase();
+      const base = ext ? entry.slice(0, -ext.length) : entry;
+      if (ext && exts.includes(ext)) {
+        found.add(base.toLowerCase());
       }
-    });
-    if (hit) found.push(tool);
+    }
   }
-  return found.sort();
+  return [...found].sort();
 }
 
 async function listWslDistros() {
@@ -75,15 +79,22 @@ async function listWslDistros() {
     .filter((line) => DISTRO_RE.test(line));
 }
 
-async function detectWslTools(distro) {
+// Alle ausfuehrbaren Namen in den Standard-PATH-Verzeichnissen einer Distro.
+// Nutzt `ls` mit direkten Verzeichnis-Argumenten (keine Shell-Interpolation).
+async function detectWslExecutables(distro) {
   if (!DISTRO_RE.test(distro)) return [];
-  const names = [...ALLOW];
-  const result = await run("wsl.exe", ["-d", distro, "--", "which", ...names], { timeoutMs: 20_000 });
-  const found = result.stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim().split("/").pop())
-    .filter((tool) => ALLOW.has(tool));
-  return [...new Set(found)].sort();
+  const dirs = ["/usr/bin", "/usr/sbin", "/bin", "/sbin", "/usr/local/bin", "/usr/local/sbin"];
+  const result = await run("wsl.exe", ["-d", distro, "--", "ls", "-1", ...dirs], { timeoutMs: 25_000 });
+  const found = new Set();
+  for (const line of result.stdout.split(/\r?\n/)) {
+    const name = line.trim();
+    if (name && !name.endsWith(":")) found.add(name);
+  }
+  return [...found].sort();
+}
+
+function withMeta(tools) {
+  return { count: tools.length, execReady: tools.filter((t) => ALLOW.has(t)), tools };
 }
 
 async function inventory({ force = false } = {}) {
@@ -91,17 +102,17 @@ async function inventory({ force = false } = {}) {
     return inventoryCache.data;
   }
 
-  const windows = detectWindowsTools();
+  const windows = detectWindowsExecutables();
   const distros = await listWslDistros();
   const wsl = {};
   for (const distro of distros) {
-    wsl[distro] = await detectWslTools(distro);
+    wsl[distro] = withMeta(await detectWslExecutables(distro));
   }
 
   const data = {
     generatedAt: new Date().toISOString(),
-    allowlistSize: ALLOW.size,
-    windows,
+    execAllowlist: [...ALLOW].sort(),
+    windows: withMeta(windows),
     wsl,
   };
   inventoryCache = { at: Date.now(), data };
@@ -127,8 +138,8 @@ async function runTool({ env, distro, tool, args = [], timeoutMs = 30_000 }) {
 
 module.exports = {
   ALLOWLIST: [...ALLOW],
-  detectWindowsTools,
-  detectWslTools,
+  detectWindowsExecutables,
+  detectWslExecutables,
   inventory,
   listWslDistros,
   runTool,
