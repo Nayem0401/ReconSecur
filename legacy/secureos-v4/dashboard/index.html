@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecureOS — Ethical Pentest Platform</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface2: #f9f9fb;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.15);
+    --text: #1d1d1f;
+    --text2: #6e6e73;
+    --text3: #aeaeb2;
+    --accent: #0071e3;
+    --accent-hover: #0077ed;
+    --red: #ff3b30;
+    --orange: #ff9500;
+    --yellow: #ffcc00;
+    --green: #34c759;
+    --teal: #5ac8fa;
+    --purple: #af52de;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', -apple-system, sans-serif;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px; min-height: 100vh; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    padding: 20px 0; position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
+  }
+  .logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); }
+  .logo-mark { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: var(--text); }
+  .logo-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .consent-badge {
+    margin: 12px 20px 0; padding: 6px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 500; display: flex; align-items: center; gap: 6px;
+  }
+  .consent-badge.verified { background: rgba(52,199,89,0.1); color: #1a7f3c; }
+  .consent-badge.unverified { background: rgba(255,59,48,0.1); color: #c0392b; }
+  .consent-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .nav { padding: 16px 0; flex: 1; }
+  .nav-section { font-size: 10px; font-weight: 600; color: var(--text3); letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 0 20px 8px; margin-top: 12px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 20px;
+    font-size: 13px; color: var(--text2); cursor: pointer; transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { color: var(--accent); background: rgba(0,113,227,0.06); border-left-color: var(--accent); }
+  .nav-icon { width: 16px; font-size: 14px; text-align: center; }
+
+  .tier-info { padding: 16px 20px; border-top: 1px solid var(--border); }
+  .tier-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .tier-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,113,227,0.1);
+    color: var(--accent); font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px; }
+
+  /* Main */
+  .main { margin-left: 240px; flex: 1; padding: 28px 32px; min-height: 100vh; }
+
+  /* Header */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+  .page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  .page-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* Phase Stepper */
+  .phase-bar {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 0;
+  }
+  .phase-step {
+    display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; cursor: pointer;
+  }
+  .phase-step::after {
+    content: ''; position: absolute; top: 13px; left: 50%; right: -50%;
+    height: 1px; background: var(--border); z-index: 0;
+  }
+  .phase-step:last-child::after { display: none; }
+  .phase-dot {
+    width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border);
+    background: var(--surface); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 500; z-index: 1; transition: all 0.2s; color: var(--text3);
+  }
+  .phase-step.done .phase-dot { background: var(--green); border-color: var(--green); color: #fff; }
+  .phase-step.active .phase-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .phase-step.locked .phase-dot { background: rgba(255,59,48,0.08); border-color: rgba(255,59,48,0.3); color: var(--red); }
+  .phase-name { font-size: 10px; color: var(--text3); margin-top: 6px; text-align: center; font-weight: 500; }
+  .phase-step.active .phase-name { color: var(--accent); }
+  .phase-step.done .phase-name { color: var(--green); }
+
+  /* Cards Grid */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+  }
+  .card-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .card-value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  .card-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  /* Severity Pills */
+  .sev { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500;
+    padding: 3px 8px; border-radius: 5px; }
+  .sev.critical { background: rgba(255,59,48,0.1); color: #c0392b; }
+  .sev.high { background: rgba(255,149,0,0.1); color: #b35a00; }
+  .sev.medium { background: rgba(255,204,0,0.1); color: #7a5c00; }
+  .sev.low { background: rgba(90,200,250,0.12); color: #1a6c8a; }
+  .sev.info { background: rgba(174,174,178,0.15); color: #6e6e73; }
+
+  /* Terminal */
+  .terminal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 24px; }
+  .terminal-header {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); background: var(--surface2);
+  }
+  .t-btn { width: 12px; height: 12px; border-radius: 50%; }
+  .t-close { background: #ff5f57; }
+  .t-min { background: #ffbd2e; }
+  .t-max { background: #28c840; }
+  .t-title { font-size: 12px; color: var(--text3); margin-left: 8px; font-family: var(--mono); }
+  .terminal-body { padding: 16px; background: #1c1c1e; min-height: 240px; max-height: 400px; overflow-y: auto; }
+  .terminal-body pre { font-family: var(--mono); font-size: 12px; line-height: 1.6; color: #d1d1d6; white-space: pre-wrap; word-break: break-all; }
+  .t-line-ok { color: #30d158; }
+  .t-line-warn { color: #ffd60a; }
+  .t-line-err { color: #ff453a; }
+  .t-line-info { color: #64d2ff; }
+  .t-prompt { color: #0a84ff; }
+  .t-cursor { display: inline-block; width: 8px; height: 14px; background: #0a84ff; animation: blink 1s infinite; vertical-align: middle; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Scan Controls */
+  .scan-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+  .scan-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select {
+    height: 36px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface2); font-family: var(--sans); font-size: 13px; color: var(--text);
+    outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field input.wide { width: 280px; }
+  .btn {
+    height: 36px; padding: 0 18px; border-radius: var(--radius-sm); border: none; cursor: pointer;
+    font-family: var(--sans); font-size: 13px; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { background: var(--border-strong); color: var(--text3); cursor: not-allowed; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border-strong); }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-danger { background: rgba(255,59,48,0.1); color: var(--red); border: 1px solid rgba(255,59,48,0.2); }
+
+  /* Findings Table */
+  .findings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .findings-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .findings-title { font-size: 14px; font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; font-weight: 500; color: var(--text3); text-align: left; padding: 10px 20px;
+    text-transform: uppercase; letter-spacing: 0.05em; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  td { padding: 12px 20px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .finding-title { font-weight: 500; margin-bottom: 2px; }
+  .finding-sub { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+
+  /* AI Panel */
+  .ai-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+  .ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--purple); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .ai-title { font-size: 14px; font-weight: 500; }
+  .ai-model { font-size: 11px; color: var(--text3); margin-left: auto; font-family: var(--mono); }
+  .ai-input-row { display: flex; gap: 10px; }
+  .ai-textarea {
+    flex: 1; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface2); font-family: var(--mono); font-size: 12px; color: var(--text);
+    resize: vertical; min-height: 80px; outline: none;
+  }
+  .ai-textarea:focus { border-color: var(--accent); }
+  .ai-response { margin-top: 14px; padding: 14px; background: var(--surface2); border-radius: var(--radius-sm);
+    font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--text); white-space: pre-wrap; display: none; }
+  .ai-response.visible { display: block; }
+
+  /* Consent Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex;
+    align-items: center; justify-content: center; z-index: 1000; display: none; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 18px; padding: 28px; width: 480px; max-width: 95vw; }
+  .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+  .modal-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .modal-step { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: var(--surface2);
+    border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .modal-step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .modal-step-text { font-size: 12px; color: var(--text); }
+  .modal-step-code { font-family: var(--mono); font-size: 11px; background: rgba(0,0,0,0.05);
+    padding: 4px 8px; border-radius: 4px; margin-top: 4px; display: block; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">SECURE OS</div>
+    <div class="logo-sub">Ethical Pentest Platform v4</div>
+    <div class="consent-badge unverified" id="consent-status">
+      <span class="consent-dot"></span>
+      <span id="consent-text">No Consent</span>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-section">Workspace</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">◉</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('scan')">
+      <span class="nav-icon">⊕</span> New Engagement
+    </div>
+    <div class="nav-item" onclick="showPage('findings')">
+      <span class="nav-icon">◈</span> Findings
+    </div>
+    <div class="nav-item" onclick="showPage('ai')">
+      <span class="nav-icon">◎</span> AI Analysis
+    </div>
+
+    <div class="nav-section">Reports</div>
+    <div class="nav-item" onclick="showPage('reports')">
+      <span class="nav-icon">≡</span> Reports
+    </div>
+    <div class="nav-item" onclick="showPage('logs')">
+      <span class="nav-icon">≣</span> Audit Log
+    </div>
+
+    <div class="nav-section">Community</div>
+    <div class="nav-item" onclick="showPage('forum')">
+      <span class="nav-icon">◇</span> Forum
+    </div>
+    <div class="nav-item" onclick="showPage('leaderboard')">
+      <span class="nav-icon">◆</span> Leaderboard
+    </div>
+  </div>
+
+  <div class="tier-info">
+    <div class="tier-label">Active Plan</div>
+    <div class="tier-badge" id="tier-badge">Tier 2 — 59€</div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main">
+
+  <!-- Page: Dashboard -->
+  <div id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub" id="engagement-sub">No active engagement — verify consent to begin</div>
+      </div>
+      <button class="btn btn-primary" onclick="openConsentModal()">+ New Engagement</button>
+    </div>
+
+    <!-- Phase Stepper -->
+    <div class="phase-bar">
+      <div class="phase-step done" id="phase-1">
+        <div class="phase-dot">1</div>
+        <div class="phase-name">Recon</div>
+      </div>
+      <div class="phase-step active" id="phase-2">
+        <div class="phase-dot">2</div>
+        <div class="phase-name">Fingerprint</div>
+      </div>
+      <div class="phase-step" id="phase-3">
+        <div class="phase-dot">3</div>
+        <div class="phase-name">Enum</div>
+      </div>
+      <div class="phase-step" id="phase-4">
+        <div class="phase-dot">4</div>
+        <div class="phase-name">Vuln Scan</div>
+      </div>
+      <div class="phase-step" id="phase-5">
+        <div class="phase-dot">5</div>
+        <div class="phase-name">Analysis</div>
+      </div>
+      <div class="phase-step locked" id="phase-6">
+        <div class="phase-dot">⛔</div>
+        <div class="phase-name">Payload</div>
+      </div>
+      <div class="phase-step locked" id="phase-7">
+        <div class="phase-dot">⛔</div>
+        <div class="phase-name">Exploit</div>
+      </div>
+      <div class="phase-step" id="phase-8">
+        <div class="phase-dot">8</div>
+        <div class="phase-name">Report</div>
+      </div>
+    </div>
+
+    <!-- Metric Cards -->
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-label">Subdomains Found</div>
+        <div class="card-value" id="m-subs">0</div>
+        <div class="card-sub">Phase 1 — Recon</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Endpoints Crawled</div>
+        <div class="card-value" id="m-endpoints">0</div>
+        <div class="card-sub">Phase 3 — Enumeration</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Findings</div>
+        <div class="card-value" id="m-findings">0</div>
+        <div class="card-sub">Verified by AI</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Critical / High</div>
+        <div class="card-value" style="color: var(--red)" id="m-critical">0</div>
+        <div class="card-sub">Require immediate action</div>
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <div class="t-btn t-close"></div>
+        <div class="t-btn t-min"></div>
+        <div class="t-btn t-max"></div>
+        <div class="t-title" id="t-title">secureos — idle</div>
+      </div>
+      <div class="terminal-body">
+        <pre id="terminal-output"><span class="t-prompt">secureos@redteam</span> ~ % <span class="t-cursor"></span>
+
+<span class="t-line-info">[SecureOS v4 MASTER] — Consent-Gated Ethical Pentest Platform</span>
+<span class="t-line-info">Waiting for consent verification...</span>
+<span class="t-line-warn">No active engagement. Click "New Engagement" to begin.</span>
+</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Scan -->
+  <div id="page-scan" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Scan Controls</div>
+        <div class="page-sub">Select tool and target — consent required</div>
+      </div>
+    </div>
+
+    <div class="scan-panel">
+      <div class="scan-row">
+        <div class="field">
+          <label>Target Domain</label>
+          <input type="text" class="wide" id="scan-target" placeholder="example.com" />
+        </div>
+        <div class="field">
+          <label>Phase</label>
+          <select id="scan-phase">
+            <option value="1">Phase 1 — Recon</option>
+            <option value="2">Phase 2 — Fingerprint</option>
+            <option value="3" disabled>Phase 3 — Enum (Tier 2+)</option>
+            <option value="4" disabled>Phase 4 — Vuln Scan (Tier 2+)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tool</label>
+          <select id="scan-tool">
+            <option value="subfinder">subfinder</option>
+            <option value="dnsx">dnsx</option>
+            <option value="whatweb">whatweb</option>
+            <option value="wafw00f">wafw00f</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="scan-btn" onclick="startScan()" disabled>
+          ▶ Run Scan
+        </button>
+        <button class="btn btn-danger" onclick="stopScan()">■ Stop</button>
+      </div>
+    </div>
+
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <div class="t-btn t-close"></div>
+        <div class="t-btn t-min"></div>
+        <div class="t-btn t-max"></div>
+        <div class="t-title" id="scan-t-title">scan — idle</div>
+      </div>
+      <div class="terminal-body">
+        <pre id="scan-output"><span class="t-line-info">Ready. Select tool and click Run.</span>
+</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Findings -->
+  <div id="page-findings" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Findings</div>
+        <div class="page-sub">AI-verified — tool output only, no hallucination</div>
+      </div>
+      <button class="btn btn-secondary" onclick="exportFindings()">Export JSON</button>
+    </div>
+
+    <div class="findings-card">
+      <div class="findings-header">
+        <span class="findings-title">All Findings</span>
+        <span style="font-size:12px;color:var(--text3)" id="findings-count">0 findings</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Finding</th>
+            <th>OWASP</th>
+            <th>CVSS</th>
+            <th>Target</th>
+            <th>Phase</th>
+          </tr>
+        </thead>
+        <tbody id="findings-tbody">
+          <tr>
+            <td colspan="6" style="text-align:center;color:var(--text3);padding:32px">
+              No findings yet — run a scan to begin
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Page: AI Analysis -->
+  <div id="page-ai" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">AI Analysis</div>
+        <div class="page-sub">Ollama / Mistral — local inference, no data leaves your machine</div>
+      </div>
+    </div>
+
+    <div class="ai-panel">
+      <div class="ai-header">
+        <div class="ai-dot"></div>
+        <div class="ai-title">Paste code, tool output, or ask a pentest question</div>
+        <div class="ai-model" id="ai-model-label">mistral — local</div>
+      </div>
+      <div class="ai-input-row">
+        <textarea class="ai-textarea" id="ai-input"
+          placeholder="Paste JS snippet, Nikto output, HTTP response, or ask: 'Is this JWT vulnerable?'"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-primary" onclick="runAiAnalysis()">Analyze ↗</button>
+        <button class="btn btn-secondary" onclick="clearAi()">Clear</button>
+      </div>
+      <div class="ai-response" id="ai-response"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Consent Modal -->
+<div class="modal-overlay" id="consent-modal">
+  <div class="modal">
+    <div class="modal-title">Verify Consent</div>
+    <div class="modal-sub">All scans require verified authorization before proceeding.</div>
+    <div class="modal-steps">
+      <div class="modal-step">
+        <div class="modal-step-num">1</div>
+        <div class="modal-step-text">
+          Add DNS TXT record to target domain:
+          <code class="modal-step-code">secureos-verify=&lt;YOUR_TOKEN&gt;</code>
+        </div>
+      </div>
+      <div class="modal-step">
+        <div class="modal-step-num">2</div>
+        <div class="modal-step-text">
+          Or add HTML snippet to target website homepage:
+          <code class="modal-step-code">&lt;meta name="secureos-consent" content="&lt;TOKEN&gt;"&gt;</code>
+        </div>
+      </div>
+      <div class="modal-step">
+        <div class="modal-step-num">3</div>
+        <div class="modal-step-text">Enter domain and your consent token below to verify.</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+      <div class="field">
+        <label>Target Domain</label>
+        <input type="text" id="modal-domain" placeholder="example.com" style="width:100%" />
+      </div>
+      <div class="field">
+        <label>Consent Token</label>
+        <input type="text" id="modal-token" placeholder="consent-xxxxxxxxxxxxxxxx" style="width:100%" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeConsentModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="verifyConsent()">Verify & Begin</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  consent: false,
+  target: null,
+  tier: 2,
+  phase: 2,
+  findings: [],
+  ws: null
+};
+
+// Demo findings for UI preview
+const DEMO_FINDINGS = [
+  { sev: 'critical', title: 'Hardcoded Session Token', sub: '/js/main.bundle.js:1247', owasp: 'A02:2021', cvss: '8.1', target: 'example.com', phase: 5 },
+  { sev: 'high', title: 'Missing HttpOnly Cookie Flag', sub: 'Set-Cookie: session=...', owasp: 'A05:2021', cvss: '7.3', target: 'example.com', phase: 2 },
+  { sev: 'medium', title: 'User Enumeration via Avatar Endpoint', sub: '/api/avatar/{id}', owasp: 'A01:2021', cvss: '5.3', target: 'example.com', phase: 3 },
+  { sev: 'medium', title: 'Outdated jQuery 1.12.4', sub: 'CVE-2020-11022', owasp: 'A06:2021', cvss: '6.1', target: 'example.com', phase: 2 },
+  { sev: 'low', title: 'X-Frame-Options Missing', sub: 'Response headers', owasp: 'A05:2021', cvss: '3.1', target: 'example.com', phase: 2 },
+];
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('[id^="page-"]').forEach(p => p.style.display = 'none');
+  document.getElementById('page-' + name).style.display = 'block';
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  event?.target?.closest('.nav-item')?.classList.add('active');
+  if (name === 'findings') renderFindings();
+}
+
+// ── Consent ────────────────────────────────────────────────────────────────────
+function openConsentModal() {
+  document.getElementById('consent-modal').classList.add('open');
+}
+function closeConsentModal() {
+  document.getElementById('consent-modal').classList.remove('open');
+}
+function verifyConsent() {
+  const domain = document.getElementById('modal-domain').value.trim();
+  const token = document.getElementById('modal-token').value.trim();
+  if (!domain || !token) { alert('Domain and token required'); return; }
+
+  // Demo verification (replace with real API call)
+  state.consent = true;
+  state.target = domain;
+
+  document.getElementById('consent-status').className = 'consent-badge verified';
+  document.getElementById('consent-text').textContent = domain;
+  document.getElementById('engagement-sub').textContent = `Active: ${domain} — Phase ${state.phase} / 8`;
+  document.getElementById('scan-btn').disabled = false;
+
+  appendTerminal(`<span class="t-line-ok">[CONSENT VERIFIED] Target: ${domain}</span>\n`);
+  appendTerminal(`<span class="t-line-ok">[SCOPE LOCKED] Scanning restricted to: ${domain}</span>\n`);
+  appendTerminal(`<span class="t-line-info">[PHASE GATE] Current phase: ${state.phase} — Phase ${state.phase + 1} requires manual confirmation</span>\n`);
+
+  closeConsentModal();
+
+  // Load demo findings
+  state.findings = [...DEMO_FINDINGS];
+  document.getElementById('m-findings').textContent = state.findings.length;
+  document.getElementById('m-critical').textContent = state.findings.filter(f => f.sev === 'critical' || f.sev === 'high').length;
+  document.getElementById('m-subs').textContent = '12';
+  document.getElementById('m-endpoints').textContent = '847';
+}
+
+// ── Terminal ──────────────────────────────────────────────────────────────────
+function appendTerminal(html) {
+  const el = document.getElementById('terminal-output');
+  el.innerHTML += html;
+  el.parentElement.scrollTop = el.parentElement.scrollHeight;
+}
+
+// ── Scan ───────────────────────────────────────────────────────────────────────
+function startScan() {
+  if (!state.consent) { openConsentModal(); return; }
+  const target = document.getElementById('scan-target').value || state.target;
+  const tool = document.getElementById('scan-tool').value;
+  const out = document.getElementById('scan-output');
+
+  document.getElementById('scan-t-title').textContent = `${tool} — ${target}`;
+  out.innerHTML = `<span class="t-prompt">secureos@redteam</span> ~ % ${tool} -d ${target}\n`;
+
+  // Demo stream output
+  const demoLines = {
+    subfinder: ['admin.example.com', 'api.example.com', 'staging.example.com', 'mail.example.com', 'cdn.example.com', '[subfinder] 5 subdomains found'],
+    whatweb: ['[200] nginx/1.18.0, jQuery[1.12.4], PHP[7.4], Bootstrap[4.5]', '[301] Redirect → https://example.com', '[whatweb] Technology fingerprint complete'],
+    wafw00f: ['Checking if example.com is behind a WAF', 'The site example.com is behind Cloudflare WAF', '[wafw00f] WAF detected: Cloudflare'],
+    dnsx: ['admin.example.com [93.184.216.34]', 'api.example.com [93.184.216.35]', 'staging.example.com [93.184.216.36]'],
+  };
+
+  let i = 0;
+  const lines = demoLines[tool] || ['Running...', 'Complete.'];
+  const interval = setInterval(() => {
+    if (i < lines.length) {
+      const cls = lines[i].includes('found') || lines[i].includes('complete') ? 't-line-ok' :
+                  lines[i].includes('WAF') ? 't-line-warn' : 't-line-info';
+      out.innerHTML += `<span class="${cls}">${lines[i]}</span>\n`;
+      out.parentElement.scrollTop = out.parentElement.scrollHeight;
+      i++;
+    } else {
+      clearInterval(interval);
+      out.innerHTML += `<span class="t-line-ok">\n[COMPLETE] ${tool} finished — ${lines.length} results</span>\n`;
+    }
+  }, 300);
+}
+
+function stopScan() {
+  if (state.ws) { state.ws.close(); state.ws = null; }
+  document.getElementById('scan-output').innerHTML += '\n<span class="t-line-warn">[STOPPED] Scan terminated by user</span>\n';
+}
+
+// ── Findings ──────────────────────────────────────────────────────────────────
+function renderFindings() {
+  const tbody = document.getElementById('findings-tbody');
+  document.getElementById('findings-count').textContent = `${state.findings.length} findings`;
+  if (!state.findings.length) return;
+
+  tbody.innerHTML = state.findings.map(f => `
+    <tr>
+      <td><span class="sev ${f.sev}">${f.sev.toUpperCase()}</span></td>
+      <td><div class="finding-title">${f.title}</div><div class="finding-sub">${f.sub}</div></td>
+      <td style="font-size:12px;color:var(--text2)">${f.owasp}</td>
+      <td><span style="font-family:var(--mono);font-size:12px">${f.cvss}</span></td>
+      <td style="font-size:12px;font-family:var(--mono)">${f.target}</td>
+      <td style="font-size:12px;color:var(--text2)">Phase ${f.phase}</td>
+    </tr>
+  `).join('');
+}
+
+function exportFindings() {
+  const blob = new Blob([JSON.stringify(state.findings, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `secureos_findings_${Date.now()}.json`;
+  a.click();
+}
+
+// ── AI Analysis ───────────────────────────────────────────────────────────────
+async function runAiAnalysis() {
+  const input = document.getElementById('ai-input').value.trim();
+  if (!input) return;
+
+  const respEl = document.getElementById('ai-response');
+  respEl.className = 'ai-response visible';
+  respEl.textContent = 'Analyzing...';
+
+  try {
+    const r = await fetch('http://localhost:8000/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input,
+        tier: state.tier,
+        scope: state.target || 'demo.local',
+        consent_token: 'consent-demo00000000000',
+        phase: state.phase
+      })
+    });
+    const data = await r.json();
+    respEl.textContent = data.analysis || JSON.stringify(data);
+  } catch (e) {
+    // Demo fallback when backend not running
+    respEl.textContent = `[DEMO MODE — Backend not connected]
+
+[FINDING ANALYSIS]
+
+Based on the provided input, here is what the SecureOS AI would identify:
+
+If this is a JWT token or hardcoded credential:
+  Type:    Hardcoded Authentication Token
+  OWASP:   A02:2021 – Cryptographic Failures
+  CWE:     CWE-798
+  CVSS:    7.5 HIGH
+
+Exploitable: YES — if token is still active, authentication can be bypassed.
+
+Next Step:
+→ Decode at jwt.io (no account needed)
+→ Check expiry (exp claim)
+→ Test: curl -H "Authorization: Bearer [token]" [scope]/api/me
+
+Start the FastAPI backend to enable live AI analysis:
+  cd backend && uvicorn main:app --reload`;
+  }
+}
+
+function clearAi() {
+  document.getElementById('ai-input').value = '';
+  document.getElementById('ai-response').className = 'ai-response';
+}
+</script>
+</body>
+</html>

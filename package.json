@@ -1,0 +1,23 @@
+{
+  "name": "hauptprojekt",
+  "version": "1.0.0",
+  "description": "Aether workspace for authorized web security assessments",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "ui:smoke": "node scripts/ui-smoke.js",
+    "mcp:start": "playwright-mcp",
+    "mcp:headless": "playwright-mcp --headless",
+    "mcp:chrome": "playwright-mcp --browser chrome",
+    "mcp:help": "playwright-mcp --help",
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@playwright/mcp": "^0.0.78"
+  }
+}

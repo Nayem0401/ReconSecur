@@ -21,3 +21,11 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+### Node / Aether ###
+node_modules/
+playwright/.auth/
+artifacts/
+*.log
+.DS_Store
+Thumbs.db

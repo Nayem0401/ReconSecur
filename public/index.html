@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Aether workspace for authorized web security assessments">
+  <title>Aether Assessment Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="rail">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <div><strong>Aether</strong><span>Assessment Console</span></div>
+    </div>
+    <nav aria-label="Bereiche">
+      <a class="nav-link active" href="#engagement">Engagement</a>
+      <a class="nav-link" href="#findings">Findings</a>
+      <a class="nav-link" href="#pipeline">Pipeline</a>
+    </nav>
+    <div class="rail-status">
+      <span class="status-dot"></span>
+      <div><strong>Local engine</strong><span>Passive checks only</span></div>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">SECUREOS V4 / ACTIVE WORKSPACE</p>
+        <h1>Authorized web assessment</h1>
+      </div>
+      <span class="mode">Read-only</span>
+    </header>
+
+    <section class="workspace" id="engagement" aria-labelledby="engagement-title">
+      <div class="section-heading">
+        <div><p class="step-label">01 / SCOPE</p><h2 id="engagement-title">Start an engagement</h2></div>
+        <p>One target, explicit authorization, auditable output.</p>
+      </div>
+
+      <form id="assessment-form" class="assessment-form">
+        <label class="target-field">
+          <span>HTTP(S) target</span>
+          <input id="target" name="target" type="text" inputmode="url" autocomplete="url" placeholder="https://example.com" required maxlength="2048">
+        </label>
+        <label class="authorization">
+          <input id="authorized" name="authorized" type="checkbox" required>
+          <span>I confirm that I own this target or have written authorization to assess it.</span>
+        </label>
+        <button id="run-button" type="submit">Run passive assessment</button>
+      </form>
+
+      <div class="run-state" id="run-state" aria-live="polite">
+        <div class="state-head"><span id="state-label">Ready</span><span id="state-time">No assessment started</span></div>
+        <div class="progress-track"><span id="progress-bar"></span></div>
+        <ol class="steps">
+          <li data-step="scope"><span>1</span>Scope validation</li>
+          <li data-step="dns"><span>2</span>DNS resolution</li>
+          <li data-step="http"><span>3</span>HTTP and headers</li>
+          <li data-step="tls"><span>4</span>TLS posture</li>
+          <li data-step="report"><span>5</span>Finding synthesis</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="results" id="findings" aria-labelledby="findings-title">
+      <div class="section-heading">
+        <div><p class="step-label">02 / FINDINGS</p><h2 id="findings-title">Evidence before claims</h2></div>
+        <button class="secondary" id="export-button" type="button" disabled>Export JSON</button>
+      </div>
+
+      <div class="metrics" id="metrics">
+        <div><span>Target status</span><strong id="metric-status">--</strong></div>
+        <div><span>Findings</span><strong id="metric-total">0</strong></div>
+        <div><span>High / Medium</span><strong id="metric-priority">0</strong></div>
+        <div><span>Resolved IPs</span><strong id="metric-addresses">0</strong></div>
+      </div>
+
+      <div id="empty-state" class="empty-state">
+        <span class="empty-index">00</span>
+        <div><strong>No evidence collected</strong><p>Run an authorized assessment to populate this workspace.</p></div>
+      </div>
+      <div id="finding-list" class="finding-list" hidden></div>
+    </section>
+
+    <section class="pipeline" id="pipeline" aria-labelledby="pipeline-title">
+      <div class="section-heading">
+        <div><p class="step-label">03 / NEXT ACTIONS</p><h2 id="pipeline-title">Controlled pipeline</h2></div>
+        <p>Kali execution remains gated and allowlisted.</p>
+      </div>
+      <div class="pipeline-grid">
+        <article><span>Active</span><h3>Passive web posture</h3><p>DNS, HTTP status, redirects, security headers and certificate metadata.</p></article>
+        <article><span>Prepared</span><h3>Kali tool adapter</h3><p>SecureOS phase definitions are imported. Tool execution needs verified consent and explicit allowlists.</p></article>
+        <article><span>Review</span><h3>Manual validation</h3><p>Confirm evidence, remove false positives and record reproducible remediation guidance.</p></article>
+      </div>
+      <ol class="next-steps" id="next-steps"></ol>
+    </section>
+  </main>
+</body>
+</html>
