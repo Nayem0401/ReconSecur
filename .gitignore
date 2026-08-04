@@ -21,3 +21,41 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+### Sensitive Data ###
+#Environment variable files
+.env
+.env.*
+*.env
+
+#Credential and secret files
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+*.der
+secrets.*
+*secrets*
+*credentials*
+
+#Configuration files that may contain secrets
+appsettings.json
+appsettings.*.json
+local.settings.json
+
+#API keys and tokens
+*.token
+*.secret
+
+#Azure / cloud service configuration
+*.publishsettings
+ServiceConfiguration.*.cscfg
+
+#Private keys
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.private
