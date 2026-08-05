@@ -263,6 +263,11 @@ tr:hover td { background: var(--bg); }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .modal-error { min-height: 18px; color: var(--red); font-size: 12px; }
 
+.code-out { white-space: pre-wrap; font-family: var(--mono, 'JetBrains Mono', monospace); font-size: 13px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px; margin-top: 10px; color: var(--text); }
+.code-out:empty { display: none; }
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }

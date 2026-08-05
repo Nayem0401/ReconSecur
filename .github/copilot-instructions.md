@@ -36,6 +36,11 @@ Regeln: Subagenten sind read-only (Bug darf Tests ausfuehren). Sie senden strukt
   Master-Login ueberspringt den Freigabecode, schaltet sofort alle Phasen frei und darf fuer Tool-Sessions/Recon
   auch private/lokale Ziele ansteuern (reines internes Lab-Testing). Alle Codes/Tokens sind serverseitig geprueft,
   niemals clientseitig frei setzbar.
+- Account-Login (Erweiterung): Neben Codes gibt es persistente Accounts (`POST /api/login` mit E-Mail + Passwort).
+  Passwoerter nur als scrypt-Hash + Salt in `artifacts/accounts.json` (gitignored), nie im Klartext/Code/Log. Rolle
+  `superadmin` = volle Master-Rechte. Pro Account wird die Engagement-Historie gespeichert (`GET /api/account/history`).
+  Super-Admin wird per `AETHER_SUPERADMIN_EMAIL`/`AETHER_SUPERADMIN_PASSWORD` einmalig geseedet; weitere Accounts nur
+  admin-authentifiziert ueber `POST /api/admin/accounts`.
 
 ## Projektfokus
 

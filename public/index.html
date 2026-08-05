@@ -277,15 +277,17 @@
     <div class="modal-sub">Alle Analysen erfordern eine bestaetigte Autorisierung.</div>
     <div class="modal-steps">
       <div class="modal-step"><div class="modal-step-num">1</div><div class="modal-step-text">HTTP(S)-Ziel eingeben (keine privaten/Loopback-Adressen ohne Freigabe).</div></div>
-      <div class="modal-step"><div class="modal-step-num">2</div><div class="modal-step-text">Login-Code eingeben (Kunde: 15-stelliger Code vom Admin, Team: Master-Code).</div></div>
-      <div class="modal-step"><div class="modal-step-num">3</div><div class="modal-step-text">Admin-Freigabecode (20 Zeichen) fuer genau dieses Ziel eingeben (entfaellt fuer Master-Login).</div></div>
+      <div class="modal-step"><div class="modal-step-num">2</div><div class="modal-step-text">Login: E-Mail + Passwort (Account) ODER 15-stelliger Code / Master-Code.</div></div>
+      <div class="modal-step"><div class="modal-step-num">3</div><div class="modal-step-text">Admin-Freigabecode (20 Zeichen) fuer genau dieses Ziel eingeben (entfaellt fuer Master/Super-Admin).</div></div>
       <div class="modal-step"><div class="modal-step-num">4</div><div class="modal-step-text">Autorisierung bestaetigen — nur eigene oder freigegebene Ziele.</div></div>
       <div class="modal-step"><div class="modal-step-num">5</div><div class="modal-step-text">Passive Analyse startet (DNS, HTTP, Header, TLS).</div></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
       <div class="field"><label>Ziel</label><input type="text" id="modal-domain" placeholder="https://example.com" style="width:100%" /></div>
-      <div class="field"><label>Login-Code</label><input type="text" id="modal-login-code" placeholder="Kunden-Code (15 Zeichen) oder Master-Code" style="width:100%" /></div>
-      <div class="field"><label>Admin-Freigabecode</label><input type="text" id="modal-approval-code" maxlength="20" placeholder="20-stelliger Code vom Admin (nicht fuer Master)" style="width:100%;text-transform:uppercase" /></div>
+      <div class="field"><label>E-Mail (Account-Login)</label><input type="email" id="modal-email" placeholder="name@beispiel.de" autocomplete="username" style="width:100%" /></div>
+      <div class="field"><label>Passwort</label><input type="password" id="modal-password" placeholder="Account-Passwort" autocomplete="current-password" style="width:100%" /></div>
+      <div class="field"><label>oder Login-Code</label><input type="text" id="modal-login-code" placeholder="Kunden-Code (15 Zeichen) oder Master-Code" style="width:100%" /></div>
+      <div class="field"><label>Admin-Freigabecode</label><input type="text" id="modal-approval-code" maxlength="20" placeholder="20-stelliger Code (nicht fuer Master/Super-Admin)" style="width:100%;text-transform:uppercase" /></div>
       <label class="checkbox"><input type="checkbox" id="modal-authorized" /> Ich bin autorisiert, dieses Ziel zu pruefen.</label>
     <div class="modal-error" id="consent-error" role="alert"></div>
     </div>

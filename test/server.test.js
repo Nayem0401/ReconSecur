@@ -20,6 +20,7 @@ const {
   requireEngagement,
   startToolSession,
 } = require("../server");
+const accountStore = require("../API/accountStore");
 
 function createTestEngagement(target, role = "customer") {
   const session = role === "master" ? login({ code: "TEST-MASTER-CODE-1" }) : login({ code: mintLoginCode().code });
@@ -224,4 +225,35 @@ test("audit log appends structured records", () => {
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("account password is stored only as a scrypt hash and verified timing-safe", () => {
+  const password = "SuperGeheim123";
+  const stored = accountStore.hashPassword(password);
+  assert.match(stored, /^scrypt:[0-9a-f]+:[0-9a-f]+$/);
+  assert.ok(!stored.includes(password));
+  assert.equal(accountStore.verifyPassword(password, stored), true);
+  assert.equal(accountStore.verifyPassword("falsch", stored), false);
+});
+
+test("account login authenticates by email and password", () => {
+  const email = `unit-${Date.now()}-${Math.random().toString(16).slice(2)}@example.de`;
+  accountStore.upsertAccount({ email, password: "PasswortStark1", role: "customer" });
+  const session = login({ email, password: "PasswortStark1" });
+  assert.equal(session.role, "customer");
+  assert.equal(session.email, email.toLowerCase());
+  assert.throws(() => login({ email, password: "falsch" }), /falsch/);
+});
+
+test("superadmin account unlocks every phase without an approval code and stores progress", () => {
+  const email = `admin-${Date.now()}-${Math.random().toString(16).slice(2)}@example.de`;
+  accountStore.upsertAccount({ email, password: "AdminStark12", role: "superadmin" });
+  const session = login({ email, password: "AdminStark12" });
+  assert.equal(session.role, "superadmin");
+  const engagement = createEngagement({ target: "https://example.com", authorized: true, sessionToken: session.token });
+  const maxPhase = engagement.unlockedPhase;
+  assert.ok(maxPhase >= 1);
+  assert.equal(requireEngagement(engagement.id, normalizeTarget("https://example.com"), maxPhase, session.token).id, engagement.id);
+  const history = accountStore.getHistory(session.accountId);
+  assert.ok(history.some((e) => e.engagementId === engagement.id));
 });

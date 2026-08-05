@@ -37,6 +37,11 @@ Bindet auf 127.0.0.1:4173. Passive Web-Analyse plus allowlist-gated Kali-Tool-Ad
   Codes (`AETHER_MASTER_CODES`). Master-Login unlockt sofort alle Phasen, ueberspringt den
   Freigabecode und darf bei Tool-Sessions/Recon private/lokale Ziele ansteuern (reines
   internes Lab-Testing); die passive Analyse bleibt vom Private-Target-Bypass ausgenommen.
+- Account-Login (API/accountStore.js): persistente Accounts mit E-Mail + Passwort; Passwoerter
+  nur als scrypt-Hash+Salt in `artifacts/accounts.json` (gitignored). Rolle `superadmin` teilt
+  sich die Master-Rechte (isPrivilegedRole). Pro Account wird die Engagement-Historie gespeichert
+  (`GET /api/account/history`). Super-Admin-Seed via `AETHER_SUPERADMIN_EMAIL`/`_PASSWORD`;
+  weitere Accounts ueber admin-authentifiziertes `POST /api/admin/accounts`.
 
 ## Konventionen
 

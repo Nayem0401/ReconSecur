@@ -46,22 +46,32 @@ function closeConsent() { $("#consent-modal").classList.remove("open"); }
 
 async function verifyConsent() {
   const target = $("#modal-domain").value.trim();
+  const email = $("#modal-email").value.trim();
+  const password = $("#modal-password").value;
   const loginCode = $("#modal-login-code").value.trim();
   const approvalCode = $("#modal-approval-code").value.trim().toUpperCase();
   const authorized = $("#modal-authorized").checked;
   if (!target) { $("#modal-domain").focus(); return; }
-  if (!loginCode) { $("#modal-login-code").focus(); return; }
+  const useAccount = Boolean(email || password);
+  if (useAccount) {
+    if (!email) { $("#modal-email").focus(); return; }
+    if (!password) { $("#modal-password").focus(); return; }
+  } else if (!loginCode) {
+    $("#modal-login-code").focus();
+    return;
+  }
   if (!authorized) { $("#modal-authorized").focus(); return; }
 
   try {
     const loginResponse = await fetch("/api/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: loginCode }),
+      body: JSON.stringify(useAccount ? { email, password } : { code: loginCode }),
     });
     const session = await loginResponse.json();
     if (!loginResponse.ok) throw new Error(session.error || "Login fehlgeschlagen.");
-    if (session.role !== "master" && approvalCode.length !== 20) {
+    const privileged = session.role === "master" || session.role === "superadmin";
+    if (!privileged && approvalCode.length !== 20) {
       $("#modal-approval-code").focus();
       throw new Error("Admin-Freigabecode (20 Zeichen) erforderlich.");
     }
@@ -74,7 +84,7 @@ async function verifyConsent() {
         target,
         authorized: true,
         sessionToken: session.token,
-        ...(session.role !== "master" ? { approvalCode } : {}),
+        ...(privileged ? {} : { approvalCode }),
       }),
     });
     const engagement = await response.json();

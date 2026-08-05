@@ -6,6 +6,7 @@ const tls = require("node:tls");
 const net = require("node:net");
 const crypto = require("node:crypto");
 const toolAdapter = require("./API/toolAdapter");
+const accountStore = require("./API/accountStore");
 
 const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -41,6 +42,15 @@ const CUSTOMER_CODE_TTL_MS = Number.isFinite(configuredCustomerCodeTtl)
 const MASTER_CODES = (process.env.AETHER_MASTER_CODES || "").split(",").map((s) => s.trim()).filter(Boolean);
 if (MASTER_CODES.length > 0 && MASTER_CODES.length < 3) {
   console.warn(`AETHER_MASTER_CODES sollte mindestens 3 Codes enthalten, gefunden: ${MASTER_CODES.length}.`);
+}
+// Super-Admin-Account einmalig anlegen (Seed aus Env), falls noch nicht vorhanden.
+// Passwort wird nur als scrypt-Hash gespeichert (artifacts/ ist gitignored).
+if (process.env.AETHER_SUPERADMIN_EMAIL && process.env.AETHER_SUPERADMIN_PASSWORD) {
+  try {
+    accountStore.ensureSuperAdmin(process.env.AETHER_SUPERADMIN_EMAIL, process.env.AETHER_SUPERADMIN_PASSWORD);
+  } catch (error) {
+    console.warn(`Super-Admin-Seed fehlgeschlagen: ${error.message}`);
+  }
 }
 const AUDIT_LOG_PATH = path.join(__dirname, "artifacts", "audit.jsonl");
 const toolSessions = new Map();
@@ -311,29 +321,45 @@ function mintLoginCode() {
   return entry;
 }
 
-function createSession(role) {
+function createSession(role, meta = {}) {
   const session = {
     token: crypto.randomUUID(),
     role,
+    accountId: meta.accountId || null,
+    email: meta.email || null,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
   };
   sessions.set(session.token, session);
-  appendAudit({ event: "login.success", role });
+  appendAudit({ event: "login.success", role, email: session.email || undefined });
   return session;
 }
 
-// Login: 3 feste Master-Codes (AETHER_MASTER_CODES) geben vollen Lab-Testzugriff
-// (kein Freigabecode, alle Phasen sofort frei, private Targets erlaubt). Kunden
-// loggen sich mit einem admin-gepraegten 15-Zeichen-Code ein (Rolle "customer").
+// Rollen mit vollen Master-Rechten (alle Phasen, kein Freigabecode, private Ziele).
+function isPrivilegedRole(role) {
+  return role === "master" || role === "superadmin";
+}
+
+// Login akzeptiert entweder E-Mail + Passwort (Account) oder einen Code
+// (Master-Code = voller Zugriff, admin-gepraegter 15-Zeichen-Kunden-Code).
 function login(body) {
+  const email = typeof body.email === "string" ? body.email.trim() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  if (email || password) {
+    const account = accountStore.authenticate(email, password);
+    if (!account) {
+      appendAudit({ event: "login.failed", method: "account" });
+      throw requestError("E-Mail oder Passwort falsch.", 401);
+    }
+    return createSession(account.role, { accountId: account.id, email: account.email });
+  }
   const code = typeof body.code === "string" ? body.code.trim() : "";
-  if (!code) throw requestError("Login-Code erforderlich.", 400);
+  if (!code) throw requestError("Login-Code oder E-Mail + Passwort erforderlich.", 400);
   if (MASTER_CODES.includes(code)) return createSession("master");
   const entry = loginCodes.get(code);
   if (entry && Date.parse(entry.expiresAt) > Date.now()) return createSession("customer");
   if (entry) loginCodes.delete(code);
-  appendAudit({ event: "login.failed" });
+  appendAudit({ event: "login.failed", method: "code" });
   throw requestError("Login-Code ungueltig oder abgelaufen.", 401);
 }
 
@@ -374,7 +400,7 @@ function createEngagement(body) {
   const target = normalizeTarget(body.target);
   const maxPhase = Math.max(...Object.keys(toolAdapter.PHASES).map(Number));
   let unlockedPhase = 1;
-  if (session.role === "master") {
+  if (isPrivilegedRole(session.role)) {
     unlockedPhase = maxPhase;
   } else {
     consumeApprovalCode(body.approvalCode, target);
@@ -385,12 +411,22 @@ function createEngagement(body) {
     scopeOrigin: target.origin,
     role: session.role,
     sessionToken: session.token,
+    accountId: session.accountId || null,
     unlockedPhase,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + ENGAGEMENT_TTL_MS).toISOString(),
     toolStarts: [],
   };
   engagements.set(engagement.id, engagement);
+  if (session.accountId) {
+    accountStore.recordEngagement(session.accountId, {
+      engagementId: engagement.id,
+      target: engagement.target,
+      role: session.role,
+      unlockedPhase,
+      createdAt: engagement.createdAt,
+    });
+  }
   appendAudit({ event: "engagement.created", engagementId: engagement.id, target: engagement.target, phase: unlockedPhase, role: session.role });
   return engagement;
 }
@@ -512,7 +548,7 @@ async function startReconBatch(body) {
 }
 
 async function spawnSession(body, normalized = normalizeTarget(body.target), engagement = requireEngagement(body.engagementId, normalized, 1, body.sessionToken)) {
-  await resolveAllowedTarget(normalized, { allowPrivate: engagement.role === "master" });
+  await resolveAllowedTarget(normalized, { allowPrivate: isPrivilegedRole(engagement.role) });
   const profile = toolAdapter.PROFILES[body.tool];
   if (!profile) throw new Error("Unbekanntes Tool.");
   const kind = profile.target.kind;
@@ -672,6 +708,40 @@ function createServer() {
       return;
     }
 
+    if (request.method === "GET" && request.url === "/api/admin/status") {
+      sendJson(response, 200, { adminConfigured: ADMIN_TOKEN.length > 0, masterCodes: MASTER_CODES.length });
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/api/account/history") {
+      try {
+        const token = (request.headers.authorization || "").replace(/^Bearer\s+/i, "");
+        const session = requireSession(token);
+        const history = session.accountId ? accountStore.getHistory(session.accountId) : [];
+        sendJson(response, 200, { email: session.email, role: session.role, engagements: history });
+      } catch (error) {
+        sendJson(response, error.status || 400, { error: error.message });
+      }
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/admin/accounts") {
+      try {
+        requireAdmin(request);
+        const body = await readJson(request);
+        const account = accountStore.upsertAccount({
+          email: body.email,
+          password: body.password,
+          role: body.role === "superadmin" ? "superadmin" : "customer",
+        });
+        appendAudit({ event: "account.upserted", email: account.email, role: account.role });
+        sendJson(response, 201, account);
+      } catch (error) {
+        sendJson(response, error.status || 400, { error: error.message });
+      }
+      return;
+    }
+
     if (request.method === "POST" && request.url === "/api/admin/logins") {
       try {
         requireAdmin(request);
@@ -788,6 +858,7 @@ if (require.main === module) {
 module.exports = {
   AUDIT_LOG_PATH,
   MAX_TOOL_STARTS_PER_MINUTE,
+  accountStore,
   appendAudit,
   createEngagement,
   createServer,

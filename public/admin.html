@@ -9,38 +9,56 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<main class="main" style="margin-left:0;max-width:640px">
+<main class="main" style="margin-left:0;max-width:680px">
   <div class="page-header">
     <div>
       <h1 class="page-title">Admin — Codes erzeugen</h1>
-      <div class="page-sub">Nur mit gueltigem Admin-Token nutzbar. Codes werden nie geloggt.</div>
+      <div class="page-sub">Hier erzeugst du die Codes, die Kunden zum Einloggen brauchen.</div>
     </div>
+    <a class="btn btn-secondary" href="/index.html">← Zur Konsole</a>
+  </div>
+
+  <div class="card" id="server-status" style="margin-bottom:20px;border-left:3px solid var(--border-strong)">
+    <div class="card-label">Status</div>
+    <div id="status-text" style="margin-top:8px;font-size:14px">Prüfe Server…</div>
   </div>
 
   <div class="card" style="margin-bottom:20px">
-    <div class="card-label">Admin-Token</div>
+    <div class="card-label">So funktioniert es</div>
+    <ol style="margin:12px 0 0 18px;font-size:14px;line-height:1.9;color:var(--text2)">
+      <li>Server einmalig <b>mit</b> Admin-Token starten (siehe Status-Box oben).</li>
+      <li>Genau dieses Token unten eintragen — es muss identisch sein.</li>
+      <li>Auf „Login-Code erzeugen“ klicken → 15-stelligen Code an den Kunden geben.</li>
+      <li>Optional pro Ziel einen 20-stelligen Freigabecode erzeugen.</li>
+    </ol>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-label">1 · Admin-Token</div>
     <div class="field" style="margin-top:10px">
-      <label>Bearer-Token (AETHER_ADMIN_TOKEN)</label>
-      <input type="password" id="admin-token" placeholder="Admin-Token" autocomplete="off" />
+      <label>Muss identisch mit AETHER_ADMIN_TOKEN des Servers sein</label>
+      <input type="password" id="admin-token" placeholder="Admin-Token eingeben" autocomplete="off" />
     </div>
   </div>
 
   <div class="card" style="margin-bottom:20px">
-    <div class="card-label">Kunden-Login-Code (15 Zeichen, wiederverwendbar)</div>
-    <div style="margin:12px 0"><button class="btn btn-primary" id="btn-mint-login" type="button">Login-Code erzeugen</button></div>
+    <div class="card-label">2 · Kunden-Login-Code (15 Zeichen, wiederverwendbar)</div>
+    <div class="card-sub" style="margin:6px 0 12px">Damit loggt sich ein Kunde ein (Feld „Login-Code“ im Engagement-Dialog).</div>
+    <button class="btn btn-primary" id="btn-mint-login" type="button">Login-Code erzeugen</button>
     <div class="modal-error" id="login-code-error" role="alert"></div>
-    <pre id="login-code-result" style="white-space:pre-wrap;font-family:'JetBrains Mono',monospace;font-size:13px"></pre>
+    <pre id="login-code-result" class="code-out"></pre>
   </div>
 
   <div class="card">
-    <div class="card-label">Freigabecode fuer ein Ziel (20 Zeichen, einmalig)</div>
-    <div class="field" style="margin:12px 0">
-      <label>Ziel (Origin)</label>
+    <div class="card-label">3 · Freigabecode für ein Ziel (20 Zeichen, einmalig)</div>
+    <div class="card-sub" style="margin:6px 0 12px">Zusätzlich nötig, damit ein Kunde genau dieses eine Ziel prüfen darf.</div>
+    <div class="field" style="margin-bottom:12px">
+      <label>Ziel-URL (kein E-Mail/Name)</label>
       <input type="text" id="approval-target" placeholder="https://example.com" />
     </div>
     <button class="btn btn-primary" id="btn-mint-approval" type="button">Freigabecode erzeugen</button>
     <div class="modal-error" id="approval-code-error" role="alert"></div>
-    <pre id="approval-code-result" style="white-space:pre-wrap;font-family:'JetBrains Mono',monospace;font-size:13px"></pre>
+    <pre id="approval-code-result" class="code-out"></pre>
   </div>
 </main>
 <script src="/admin.js" defer></script>

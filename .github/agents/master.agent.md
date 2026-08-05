@@ -16,6 +16,8 @@ Du bist der Master-Orchestrator von Aether (AppSec/Pentest-Assistent). Nur du en
 - Externe Tools nur ueber feste Allowlists + argumentbasierte APIs, keine Shell-Interpolation von Nutzereingaben.
 - Login-Modell fest: Kunden = 15-stelliger, admin-gepraegter Code + 20-stelliger Ziel-Freigabecode. Team/Master =
   mindestens 3 feste Codes (`AETHER_MASTER_CODES`), volle Freischaltung fuer Lab-Tests. Nicht ohne Rueckfrage aendern.
+- Account-Login: persistente Accounts (E-Mail + Passwort), Passwoerter nur als scrypt-Hash in artifacts/accounts.json
+  (gitignored, nie Klartext). Rolle `superadmin` = volle Master-Rechte; Engagement-Historie pro Account gespeichert.
 
 ## Feste Knowledge-Pfade (immer aktuell halten)
 - `knowledge/INDEX.md` — Index zuerst lesen

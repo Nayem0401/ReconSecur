@@ -127,3 +127,28 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:4173/api/admin/logins `
 Die Antwort enthaelt den 15-stelligen Kunden-Login-Code. `POST /api/login` liefert ein Session-Token (`sessionToken`),
 das beim Erstellen des Engagements und bei jeder zugehoerigen Analyse, Phasenfreigabe oder Tool-Session mitgeschickt werden muss; die Session-TTL laesst sich per
 `AETHER_SESSION_TTL_MS` (Standard 12 Stunden) anpassen.
+
+### Account-Login (E-Mail + Passwort) und Fortschrittsspeicher
+
+Alternativ zum Code-Login gibt es persistente Accounts (`POST /api/login` mit `{ "email": "...", "password": "..." }`).
+Passwoerter werden nur als scrypt-Hash + Salt in `artifacts/accounts.json` gespeichert (nie im Klartext, `artifacts/`
+ist `.gitignored`). Ein Account mit Rolle `superadmin` hat die vollen Master-Rechte (alle Phasen sofort frei, kein
+Freigabecode noetig, private/lokale Ziele erlaubt). Pro Account wird die Engagement-Historie (Ziel, Datum, Phase)
+gespeichert und ist per `GET /api/account/history` (mit `Authorization: Bearer <sessionToken>`) abrufbar.
+
+Super-Admin einmalig beim Serverstart seeden (Passwort nur als Hash gespeichert):
+
+```powershell
+$env:AETHER_SUPERADMIN_EMAIL="name@beispiel.de"
+$env:AETHER_SUPERADMIN_PASSWORD="dein-passwort"
+npm start
+```
+
+Weitere Accounts legt der Admin an (Admin-Token noetig, `role` = `customer` oder `superadmin`):
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:4173/api/admin/accounts `
+  -Headers @{ Authorization = "Bearer ein-geheimes-admin-token" } `
+  -ContentType "application/json" `
+  -Body '{"email":"kunde@beispiel.de","password":"mind-8-zeichen","role":"customer"}'
+```
