@@ -4,6 +4,7 @@ const path = require("node:path");
 const dns = require("node:dns/promises");
 const tls = require("node:tls");
 const net = require("node:net");
+const crypto = require("node:crypto");
 const toolAdapter = require("./API/toolAdapter");
 
 const PORT = Number(process.env.PORT || 4173);
@@ -11,6 +12,9 @@ const HOST = process.env.HOST || "127.0.0.1";
 const PUBLIC_DIR = path.join(__dirname, "public");
 const MAX_BODY_BYTES = 16 * 1024;
 const ALLOW_PRIVATE_TARGETS = process.env.AETHER_ALLOW_PRIVATE === "true";
+const MAX_TOOL_SESSIONS = 16;
+const MAX_SESSION_EVENTS = 500;
+const toolSessions = new Map();
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -198,6 +202,135 @@ function sendJson(response, status, value) {
   response.end(JSON.stringify(value));
 }
 
+function publishSession(session, type, data) {
+  const event = { id: ++session.sequence, type, data, at: new Date().toISOString() };
+  session.events.push(event);
+  if (session.events.length > MAX_SESSION_EVENTS) session.events.shift();
+  const payload = `id: ${event.id}\nevent: ${type}\ndata: ${JSON.stringify(event)}\n\n`;
+  for (const client of session.clients) client.write(payload);
+  return event;
+}
+
+function sessionSummary(session) {
+  return {
+    id: session.id,
+    tool: session.tool,
+    target: session.target,
+    env: session.env,
+    distro: session.distro,
+    command: session.command,
+    status: session.status,
+    startedAt: session.startedAt,
+    completedAt: session.completedAt || null,
+  };
+}
+
+function startToolSession(body) {
+  if (body.authorized !== true) throw new Error("Die ausdrueckliche Autorisierung muss bestaetigt werden.");
+  const activeCount = [...toolSessions.values()].filter(({ status }) => status === "running").length;
+  if (activeCount >= MAX_TOOL_SESSIONS) throw new Error(`Maximal ${MAX_TOOL_SESSIONS} Tool-Sessions koennen gleichzeitig laufen.`);
+  return spawnSession(body);
+}
+
+// Startet alle Recon-Tools (Phase 1) parallel gegen dasselbe Ziel. Der Client
+// liefert die im gewaehlten Env verfuegbaren Tools; hier wird gegen Phase-1-
+// Allowlist validiert und die Gesamtlast auf MAX_TOOL_SESSIONS begrenzt.
+function startReconBatch(body) {
+  if (body.authorized !== true) throw new Error("Die ausdrueckliche Autorisierung muss bestaetigt werden.");
+  const phase1 = new Set(toolAdapter.TOOL_CATALOG.filter((t) => t.phase === 1).map((t) => t.name));
+  const requested = Array.isArray(body.tools) && body.tools.length
+    ? [...new Set(body.tools)].filter((t) => phase1.has(t))
+    : [...phase1];
+  if (!requested.length) throw new Error("Keine Recon-Tools fuer die gewaehlte Umgebung verfuegbar.");
+  const running = [...toolSessions.values()].filter(({ status }) => status === "running").length;
+  if (running + requested.length > MAX_TOOL_SESSIONS) {
+    throw new Error(`Zu viele parallele Sessions (${running} aktiv + ${requested.length} neu > ${MAX_TOOL_SESSIONS}).`);
+  }
+  return Promise.all(requested.map((tool) => spawnSession({
+    authorized: true, tool, target: body.target, env: body.env, distro: body.distro, options: {},
+  })));
+}
+
+async function spawnSession(body) {
+  const normalized = normalizeTarget(body.target);
+  await resolveAllowedTarget(normalized);
+  const profile = toolAdapter.PROFILES[body.tool];
+  if (!profile) throw new Error("Unbekanntes Tool.");
+  const kind = profile.target.kind;
+  const port = normalized.port || (normalized.protocol === "http:" ? "80" : "443");
+  let target =
+    kind === "host" || kind === "domain" ? normalized.hostname
+      : kind === "hostport" ? `${normalized.hostname}:${port}`
+      : normalized.href;
+
+  const prefixField = (profile.flags || []).find((f) => f.role === "prefix");
+  if (prefixField && (kind === "host" || kind === "domain")) {
+    const raw = body.options?.[prefixField.key];
+    const value = raw === undefined || raw === "" ? prefixField.default : String(raw);
+    if (!prefixField.values.includes(value)) throw new Error("Ungueltiger Scope.");
+    if (value !== "(root)") target = `${value}.${target}`;
+  }
+  const session = {
+    id: crypto.randomUUID(),
+    tool: body.tool,
+    target: normalized.href,
+    env: body.env,
+    distro: body.distro || null,
+    status: "running",
+    startedAt: new Date().toISOString(),
+    sequence: 0,
+    events: [],
+    clients: new Set(),
+  };
+
+  const execution = toolAdapter.startTool({
+    env: body.env,
+    distro: body.distro,
+    tool: body.tool,
+    target,
+    options: body.options,
+  }, {
+    onStdout: (text) => publishSession(session, "stdout", { text }),
+    onStderr: (text) => publishSession(session, "stderr", { text }),
+    onTimeout: () => publishSession(session, "timeout", {}),
+    onError: (error) => {
+      session.status = "failed";
+      publishSession(session, "error", { message: error.message });
+    },
+    onClose: (code, signal) => {
+      session.status = session.status === "cancelled" ? "cancelled" : (code === 0 ? "completed" : "failed");
+      session.completedAt = new Date().toISOString();
+      publishSession(session, "exit", { code, signal, status: session.status });
+      for (const client of session.clients) client.end();
+      session.clients.clear();
+    },
+  });
+  session.child = execution.child;
+  session.command = execution.command;
+  toolSessions.set(session.id, session);
+  publishSession(session, "start", sessionSummary(session));
+  return session;
+}
+
+function streamToolSession(request, response, session) {
+  response.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-store",
+    connection: "keep-alive",
+    "x-content-type-options": "nosniff",
+  });
+  const lastId = Number(request.headers["last-event-id"] || 0);
+  for (const event of session.events.filter(({ id }) => id > lastId)) {
+    response.write(`id: ${event.id}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+  }
+  if (session.status !== "running") {
+    response.end();
+    return;
+  }
+  session.clients.add(response);
+  request.on("close", () => session.clients.delete(response));
+}
+
 async function readJson(request) {
   let body = "";
   for await (const chunk of request) {
@@ -208,9 +341,11 @@ async function readJson(request) {
 }
 
 function serveStatic(request, response) {
-  const requestPath = request.url === "/" ? "/index.html" : request.url;
+  const pathname = new URL(request.url, "http://localhost").pathname;
+  const requestPath = pathname === "/" ? "/index.html" : pathname;
   const filePath = path.resolve(PUBLIC_DIR, `.${requestPath}`);
-  if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+  const withinRoot = filePath === PUBLIC_DIR || filePath.startsWith(PUBLIC_DIR + path.sep);
+  if (!withinRoot || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     sendJson(response, 404, { error: "Nicht gefunden." });
     return;
   }
@@ -245,6 +380,57 @@ function createServer() {
       return;
     }
 
+    if (request.method === "GET" && request.url === "/api/tool-sessions") {
+      sendJson(response, 200, { sessions: [...toolSessions.values()].map(sessionSummary) });
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/tool-sessions") {
+      try {
+        const session = await startToolSession(await readJson(request));
+        sendJson(response, 202, sessionSummary(session));
+      } catch (error) {
+        sendJson(response, /Autorisierung/.test(error.message) ? 403 : 400, { error: error.message });
+      }
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/recon-runs") {
+      try {
+        const sessions = await startReconBatch(await readJson(request));
+        sendJson(response, 202, { sessions: sessions.map(sessionSummary) });
+      } catch (error) {
+        sendJson(response, /Autorisierung/.test(error.message) ? 403 : 400, { error: error.message });
+      }
+      return;
+    }
+
+    const sessionRoute = request.url.match(/^\/api\/tool-sessions\/([0-9a-f-]+)(?:\/events)?$/i);
+    if (sessionRoute) {
+      const session = toolSessions.get(sessionRoute[1]);
+      if (!session) {
+        sendJson(response, 404, { error: "Tool-Session nicht gefunden." });
+        return;
+      }
+      if (request.method === "GET" && request.url.endsWith("/events")) {
+        streamToolSession(request, response, session);
+        return;
+      }
+      if (request.method === "GET") {
+        sendJson(response, 200, sessionSummary(session));
+        return;
+      }
+      if (request.method === "DELETE" && !request.url.endsWith("/events")) {
+        if (session.status === "running") {
+          session.status = "cancelled";
+          publishSession(session, "cancel", {});
+          session.child.kill("SIGKILL");
+        }
+        sendJson(response, 200, sessionSummary(session));
+        return;
+      }
+    }
+
     if (request.method === "GET") {
       serveStatic(request, response);
       return;
@@ -257,4 +443,4 @@ if (require.main === module) {
   createServer().listen(PORT, HOST, () => console.log(`Aether UI: http://${HOST}:${PORT}`));
 }
 
-module.exports = { createServer, inspectHeaders, isPrivateAddress, normalizeTarget };
+module.exports = { createServer, inspectHeaders, isPrivateAddress, normalizeTarget, startToolSession, startReconBatch };

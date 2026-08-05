@@ -10,7 +10,7 @@ Arbeite praezise, pragmatisch und mit maximal nachvollziehbaren Schritten.
 - Kein Chat-Verbrauch fuer nichts: keine Einleitungen, keine Wiederholungen, keine Fuellsaetze.
 - Erklaerungen kurz und knapp. Nur das Noetige.
 - Dieselbe Quelle pro Aufgabe nur einmal lesen.
-- Vor JEDER Aenderung 10 Schritte vorausdenken: erst Struktur/Abhaengigkeiten pruefen, Auswirkungen abschaetzen, dann minimal aendern.
+- Vor JEDER Aenderung 5 Stufen vorausdenken: erst Struktur/Abhaengigkeiten pruefen, Auswirkungen abschaetzen, dann minimal aendern. Danach IMMER Selbstpruefung: Ergebnis gegen das Ziel testen (npm test / ui:smoke / Sichtpruefung).
 
 ## Subagent-Orchestrierung
 
@@ -48,10 +48,12 @@ Regeln: Subagenten sind read-only (Bug darf Tests ausfuehren). Sie senden strukt
 ### Feste Knowledge-Pfade (nie umbenennen, immer erweitern)
 
 - `knowledge/INDEX.md` — Index aller Wissensdateien, zuerst lesen.
+- `knowledge/knowledge.md` — beschreibt das Projekt selbst (Architektur, Komponenten, Konventionen). Grundwissen, das den Kontext traegt.
 - `knowledge/chatlog.md` — Entscheidungen und Master-Beschluesse anhaengen.
 - `knowledge/bugfix.md` — gefundene Bugs + Fixes anhaengen.
-- `knowledge/changelog.md` — durchgefuehrte Code-Aenderungen anhaengen.
+- `knowledge/changelog.md` — was zuletzt am Code geaendert wurde, anhaengen.
 
+Semantik: knowledge = das Projekt, changelog = letzte Aenderungen, bugfix = behobene Fehler. changelog/bugfix/knowledge verbessern den Kontext am staerksten.
 Immer append-only, Format `- [YYYY-MM-DD] <Kurztext>`. Nach jeder Aenderung: chatlog + changelog (und bugfix bei Fehlern) fortschreiben.
 4. Lies dieselbe Quelle pro Aufgabe nur einmal und halte die benoetigten Fakten kompakt im Arbeitskontext.
 5. Arbeite token-effizient: inventarisieren, Zusammenfassungen lesen, relevante Details lesen, dann aendern.

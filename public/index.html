@@ -170,23 +170,79 @@
   <div id="page-tools" style="display:none">
     <div class="page-header">
       <div>
-        <div class="page-title">Tool-Inventar</div>
-        <div class="page-sub">Erkennung parallel unter Windows und WSL2. Ausfuehrung bleibt allowlist-gated.</div>
+        <div class="page-title">Tool-Katalog</div>
+        <div class="page-sub">Red-Team Web Application — nach Kategorie, mit Flag-Erklaerung. Jedes Tool ist startbar, Ausfuehrung bleibt allowlist-gated.</div>
       </div>
       <button class="btn btn-secondary" id="tools-refresh" data-action="refresh-tools">↻ Aktualisieren</button>
     </div>
 
+    <div class="phase-tabs" id="phase-tabs"></div>
+
+    <div class="recon-batch" id="recon-batch" hidden>
+      <div class="field" style="flex:1;min-width:220px">
+        <label for="recon-target">Recon-Ziel</label>
+        <input type="text" id="recon-target" placeholder="example.com oder https://example.com" maxlength="2048" />
+      </div>
+      <div class="field">
+        <label for="recon-env">Umgebung</label>
+        <select id="recon-env"></select>
+      </div>
+      <button class="btn btn-primary" id="recon-start" type="button" data-action="run-recon">▶ Recon starten — alle Tools parallel</button>
+      <div class="recon-hint" id="recon-hint"></div>
+    </div>
+    <div class="recon-grid" id="recon-grid"></div>
+
     <div class="scan-panel">
       <div class="scan-row">
         <div class="field" style="flex:1">
-          <label>Filter</label>
-          <input type="text" id="tools-filter" placeholder="z. B. nmap, sqlmap, curl…" />
+          <label for="tools-filter">Filter</label>
+          <input type="text" id="tools-filter" placeholder="z. B. nmap, dig, dmarc…" />
+        </div>
+        <div class="field">
+          <label for="tools-category">Kategorie</label>
+          <select id="tools-category"><option value="">Alle Kategorien</option></select>
         </div>
       </div>
     </div>
 
+    <div class="tool-run-panel" id="tool-run-panel" hidden>
+      <form id="tool-run-form" class="tool-run-grid">
+        <div class="field">
+          <label for="run-tool">Tool</label>
+          <input type="text" id="run-tool" readonly />
+        </div>
+        <div class="field">
+          <label for="run-env">Umgebung</label>
+          <select id="run-env"></select>
+        </div>
+        <div class="field" style="flex:1;min-width:220px">
+          <label for="run-target">Ziel</label>
+          <input type="text" id="run-target" placeholder="https://example.com" maxlength="2048" />
+        </div>
+        <div id="run-options" class="tool-run-options"></div>
+        <div class="field" style="flex:1;min-width:100%">
+          <label>Kommando-Vorschau</label>
+          <code id="run-preview" class="cmd-preview">—</code>
+        </div>
+        <button class="btn btn-primary" id="run-start" type="submit" disabled>▶ Tool starten</button>
+      </form>
+    </div>
+
     <div id="tools-container" class="tools-container">
       <div class="empty-note">Inventar wird geladen…</div>
+    </div>
+
+    <div class="terminal-card" style="margin-top:24px">
+      <div class="terminal-header">
+        <div class="t-btn t-close"></div><div class="t-btn t-min"></div><div class="t-btn t-max"></div>
+        <div class="t-title" id="session-title">sessions — keine aktive Session</div>
+        <button class="btn btn-secondary session-cancel" id="session-cancel" hidden data-action="cancel-session">■ Abbrechen</button>
+      </div>
+      <div class="session-tabs" id="session-tabs"></div>
+      <div class="terminal-body">
+<pre id="session-output" role="log" aria-live="polite"><span class="t-line-info">Tool auswaehlen, Ziel setzen, Autorisierung im Engagement bestaetigen und starten — der Live-Output erscheint hier.</span>
+</pre>
+      </div>
     </div>
   </div>
 
