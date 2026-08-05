@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Aether Admin — Login- und Freigabecodes erzeugen">
+  <title>Aether — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main class="main" style="margin-left:0;max-width:640px">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Admin — Codes erzeugen</h1>
+      <div class="page-sub">Nur mit gueltigem Admin-Token nutzbar. Codes werden nie geloggt.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-label">Admin-Token</div>
+    <div class="field" style="margin-top:10px">
+      <label>Bearer-Token (AETHER_ADMIN_TOKEN)</label>
+      <input type="password" id="admin-token" placeholder="Admin-Token" autocomplete="off" />
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-label">Kunden-Login-Code (15 Zeichen, wiederverwendbar)</div>
+    <div style="margin:12px 0"><button class="btn btn-primary" id="btn-mint-login" type="button">Login-Code erzeugen</button></div>
+    <div class="modal-error" id="login-code-error" role="alert"></div>
+    <pre id="login-code-result" style="white-space:pre-wrap;font-family:'JetBrains Mono',monospace;font-size:13px"></pre>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Freigabecode fuer ein Ziel (20 Zeichen, einmalig)</div>
+    <div class="field" style="margin:12px 0">
+      <label>Ziel (Origin)</label>
+      <input type="text" id="approval-target" placeholder="https://example.com" />
+    </div>
+    <button class="btn btn-primary" id="btn-mint-approval" type="button">Freigabecode erzeugen</button>
+    <div class="modal-error" id="approval-code-error" role="alert"></div>
+    <pre id="approval-code-result" style="white-space:pre-wrap;font-family:'JetBrains Mono',monospace;font-size:13px"></pre>
+  </div>
+</main>
+<script src="/admin.js" defer></script>
+</body>
+</html>

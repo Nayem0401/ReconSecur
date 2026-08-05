@@ -32,6 +32,9 @@
 
     <div class="nav-section">Kontext</div>
     <div class="nav-item" data-page="pipeline"><span class="nav-icon">≡</span> Pipeline</div>
+
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" href="/admin.html" target="_blank" rel="noopener"><span class="nav-icon">🔑</span> Codes erzeugen</a>
   </div>
 
   <div class="tier-info">
@@ -53,14 +56,10 @@
     </div>
 
     <div class="phase-bar" id="phase-bar">
-      <div class="phase-step active"><div class="phase-dot">1</div><div class="phase-name">Recon</div></div>
-      <div class="phase-step"><div class="phase-dot">2</div><div class="phase-name">Fingerprint</div></div>
-      <div class="phase-step"><div class="phase-dot">3</div><div class="phase-name">HTTP/Header</div></div>
-      <div class="phase-step"><div class="phase-dot">4</div><div class="phase-name">TLS</div></div>
-      <div class="phase-step"><div class="phase-dot">5</div><div class="phase-name">Analyse</div></div>
-      <div class="phase-step locked"><div class="phase-dot">⛔</div><div class="phase-name">Enum</div></div>
-      <div class="phase-step locked"><div class="phase-dot">⛔</div><div class="phase-name">Exploit</div></div>
-      <div class="phase-step"><div class="phase-dot">8</div><div class="phase-name">Report</div></div>
+      <div class="phase-step active"><div class="phase-dot">1</div><div class="phase-name">Information Gathering</div></div>
+      <div class="phase-step"><div class="phase-dot">2</div><div class="phase-name">Content Discovery</div></div>
+      <div class="phase-step"><div class="phase-dot">3</div><div class="phase-name">TLS / SSL</div></div>
+      <div class="phase-step"><div class="phase-dot">4</div><div class="phase-name">Vuln & Injection</div></div>
     </div>
 
     <div class="cards-grid">
@@ -177,6 +176,10 @@
     </div>
 
     <div class="phase-tabs" id="phase-tabs"></div>
+    <div class="phase-gate">
+      <span id="phase-gate-status">Engagement erforderlich</span>
+      <button class="btn btn-secondary" id="phase-advance" type="button" data-action="advance-phase" disabled>Phase freigeben</button>
+    </div>
 
     <div class="recon-batch" id="recon-batch" hidden>
       <div class="field" style="flex:1;min-width:220px">
@@ -256,7 +259,7 @@
     </div>
     <div class="cards-grid">
       <div class="card"><div class="card-label">Aktiv</div><div class="card-value" style="font-size:18px">Passive Web-Posture</div><div class="card-sub">DNS, HTTP-Status, Redirects, Security-Header, Zertifikats-Metadaten.</div></div>
-      <div class="card"><div class="card-label">Vorbereitet</div><div class="card-value" style="font-size:18px">Kali-Tool-Adapter</div><div class="card-sub">Erkennung aktiv. Ausfuehrung braucht Consent, Scope, Allowlist, Audit.</div></div>
+      <div class="card"><div class="card-label">Gesteuert</div><div class="card-value" style="font-size:18px">4-Phasen-Adapter</div><div class="card-sub">Ausfuehrung braucht Engagement, Scope, Phasenfreigabe, Allowlist und Audit.</div></div>
       <div class="card"><div class="card-label">Review</div><div class="card-value" style="font-size:18px">Manuelle Validierung</div><div class="card-sub">Evidenz bestaetigen, False Positives entfernen, Remediation dokumentieren.</div></div>
     </div>
     <div class="findings-card" style="margin-top:24px">
@@ -274,12 +277,17 @@
     <div class="modal-sub">Alle Analysen erfordern eine bestaetigte Autorisierung.</div>
     <div class="modal-steps">
       <div class="modal-step"><div class="modal-step-num">1</div><div class="modal-step-text">HTTP(S)-Ziel eingeben (keine privaten/Loopback-Adressen ohne Freigabe).</div></div>
-      <div class="modal-step"><div class="modal-step-num">2</div><div class="modal-step-text">Autorisierung bestaetigen — nur eigene oder freigegebene Ziele.</div></div>
-      <div class="modal-step"><div class="modal-step-num">3</div><div class="modal-step-text">Passive Analyse startet (DNS, HTTP, Header, TLS).</div></div>
+      <div class="modal-step"><div class="modal-step-num">2</div><div class="modal-step-text">Login-Code eingeben (Kunde: 15-stelliger Code vom Admin, Team: Master-Code).</div></div>
+      <div class="modal-step"><div class="modal-step-num">3</div><div class="modal-step-text">Admin-Freigabecode (20 Zeichen) fuer genau dieses Ziel eingeben (entfaellt fuer Master-Login).</div></div>
+      <div class="modal-step"><div class="modal-step-num">4</div><div class="modal-step-text">Autorisierung bestaetigen — nur eigene oder freigegebene Ziele.</div></div>
+      <div class="modal-step"><div class="modal-step-num">5</div><div class="modal-step-text">Passive Analyse startet (DNS, HTTP, Header, TLS).</div></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
       <div class="field"><label>Ziel</label><input type="text" id="modal-domain" placeholder="https://example.com" style="width:100%" /></div>
+      <div class="field"><label>Login-Code</label><input type="text" id="modal-login-code" placeholder="Kunden-Code (15 Zeichen) oder Master-Code" style="width:100%" /></div>
+      <div class="field"><label>Admin-Freigabecode</label><input type="text" id="modal-approval-code" maxlength="20" placeholder="20-stelliger Code vom Admin (nicht fuer Master)" style="width:100%;text-transform:uppercase" /></div>
       <label class="checkbox"><input type="checkbox" id="modal-authorized" /> Ich bin autorisiert, dieses Ziel zu pruefen.</label>
+    <div class="modal-error" id="consent-error" role="alert"></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" data-action="close-consent">Abbrechen</button>

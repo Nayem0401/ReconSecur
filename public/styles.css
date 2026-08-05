@@ -192,6 +192,8 @@ tr:hover td { background: var(--bg); }
 .tool-group.hidden { display: none; }
 .tool-unavailable { opacity: 0.5; }
 .tool-unavailable .run-select { cursor: not-allowed; }
+.phase-gate { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -8px 0 20px; }
+.phase-gate span { font-size: 12px; color: var(--text2); }
 
 /* Recon batch */
 .recon-batch { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px;
@@ -259,6 +261,7 @@ tr:hover td { background: var(--bg); }
   color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .modal-step-text { font-size: 12px; color: var(--text); }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-error { min-height: 18px; color: var(--red); font-size: 12px; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -279,4 +282,5 @@ tr:hover td { background: var(--bg); }
   .tool-run-grid input, .tool-run-grid select, #run-start { width: 100%; }
   .tool-details summary { gap: 8px; }
   .cat-desc { flex: 1 1 100%; }
+  .phase-gate { align-items: flex-start; flex-direction: column; }
 }

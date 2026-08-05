@@ -3,6 +3,8 @@
 const state = {
   target: null,
   authorized: false,
+  engagement: null,
+  loginSession: null,
   assessment: null,
   tools: null,
   selectedTool: null,
@@ -42,28 +44,66 @@ function appendTerminal(targetId, cls, text) {
 function openConsent() { $("#consent-modal").classList.add("open"); }
 function closeConsent() { $("#consent-modal").classList.remove("open"); }
 
-function verifyConsent() {
+async function verifyConsent() {
   const target = $("#modal-domain").value.trim();
+  const loginCode = $("#modal-login-code").value.trim();
+  const approvalCode = $("#modal-approval-code").value.trim().toUpperCase();
   const authorized = $("#modal-authorized").checked;
   if (!target) { $("#modal-domain").focus(); return; }
+  if (!loginCode) { $("#modal-login-code").focus(); return; }
   if (!authorized) { $("#modal-authorized").focus(); return; }
 
-  state.target = target;
-  state.authorized = true;
-  $("#scan-target").value = target;
-  $("#authorized").checked = true;
-  setConsentBadge(target);
-  closeConsent();
-  showPage("scan");
-  appendTerminal("scan-output", "t-line-ok", `[ENGAGEMENT] Ziel gesetzt: ${target}`);
-  appendTerminal("scan-output", "t-line-info", "[BEREIT] Passive Analyse kann gestartet werden.");
+  try {
+    const loginResponse = await fetch("/api/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: loginCode }),
+    });
+    const session = await loginResponse.json();
+    if (!loginResponse.ok) throw new Error(session.error || "Login fehlgeschlagen.");
+    if (session.role !== "master" && approvalCode.length !== 20) {
+      $("#modal-approval-code").focus();
+      throw new Error("Admin-Freigabecode (20 Zeichen) erforderlich.");
+    }
+    state.loginSession = session;
+
+    const response = await fetch("/api/engagements", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        target,
+        authorized: true,
+        sessionToken: session.token,
+        ...(session.role !== "master" ? { approvalCode } : {}),
+      }),
+    });
+    const engagement = await response.json();
+    if (!response.ok) throw new Error(engagement.error || "Engagement konnte nicht erstellt werden.");
+
+    state.engagement = engagement;
+    state.target = engagement.target;
+    state.authorized = true;
+    $("#scan-target").value = engagement.target;
+    $("#authorized").checked = true;
+    $("#consent-error").textContent = "";
+    setConsentBadge(engagement.target);
+    if (state.tools) renderTools(state.tools);
+    closeConsent();
+    showPage("scan");
+    appendTerminal("scan-output", "t-line-ok", `[ENGAGEMENT] Ziel gesetzt: ${engagement.target} (Rolle: ${session.role})`);
+    appendTerminal("scan-output", "t-line-info", `[BEREIT] Phasen 1-${engagement.unlockedPhase} sind freigegeben.`);
+  } catch (error) {
+    $("#consent-error").textContent = error.message;
+  }
 }
 
 function setConsentBadge(target) {
   const badge = $("#consent-status");
   badge.className = "consent-badge verified";
   $("#consent-text").textContent = target;
-  $("#engagement-sub").textContent = `Aktiv: ${target} — passive Analyse bereit`;
+  const phase = state.engagement?.unlockedPhase || 1;
+  const maxPhase = state.catalog ? Math.max(...[...state.catalog.values()].map((t) => t.phase)) : phase;
+  $("#engagement-sub").textContent = `Aktiv: ${target} — Phase ${phase}/${maxPhase} freigegeben`;
 }
 
 // ── Assessment ────────────────────────────────────────────────────────────────
@@ -79,9 +119,11 @@ async function runAssessment(event) {
     appendTerminal(outId, "t-line-err", "[BLOCKIERT] Autorisierung nicht bestaetigt.");
     return;
   }
+  if (!state.engagement) {
+    appendTerminal(outId, "t-line-err", "[BLOCKIERT] Serverseitiges Engagement erforderlich.");
+    return;
+  }
 
-  state.target = target;
-  setConsentBadge(target);
   btn.disabled = true;
   const original = btn.textContent;
   btn.textContent = "Analyse laeuft…";
@@ -93,7 +135,7 @@ async function runAssessment(event) {
     const response = await fetch("/api/assessments", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ target, authorized: true }),
+      body: JSON.stringify({ target, engagementId: state.engagement.id, sessionToken: state.loginSession.token }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Analyse fehlgeschlagen.");
@@ -201,6 +243,7 @@ function renderTools(data) {
   renderToolCatalog(data);
   applyToolFilter();
   updateReconBar();
+  updatePhaseGate();
 }
 
 function renderPhaseTabs(data) {
@@ -259,6 +302,7 @@ function renderToolCatalog(data) {
 
     for (const tool of tools) {
       const installed = ready.has(tool.name);
+      const phaseUnlocked = state.engagement && tool.phase <= state.engagement.unlockedPhase;
       const row = document.createElement("details");
       row.className = "tool-details" + (installed ? "" : " tool-unavailable");
       row.dataset.name = tool.name;
@@ -269,8 +313,11 @@ function renderToolCatalog(data) {
       const desc = document.createElement("span"); desc.className = "cat-desc"; desc.textContent = tool.summary;
       const load = document.createElement("button");
       load.type = "button"; load.className = "btn btn-secondary run-select";
-      if (installed) {
+      if (installed && phaseUnlocked) {
         load.textContent = "▶ Starten"; load.dataset.select = tool.name;
+      } else if (installed) {
+        load.textContent = `Phase ${tool.phase} gesperrt`; load.disabled = true;
+        load.title = "Diese Phase muss im Engagement explizit freigegeben werden.";
       } else {
         load.textContent = "nicht installiert"; load.disabled = true; load.title = "Tool in Windows-PATH oder WSL2/Kali installieren.";
       }
@@ -309,6 +356,7 @@ function toolEnvironments() {
 function selectTool(name) {
   const entry = state.catalog?.get(name);
   if (!entry) return;
+  if (!state.engagement || entry.phase > state.engagement.unlockedPhase) return;
   state.selectedTool = name;
   state.selectedEntry = entry;
   $("#tool-run-panel").hidden = false;
@@ -325,7 +373,7 @@ function selectTool(name) {
   const targetInput = $("#run-target");
   targetInput.placeholder = entry.target.placeholder || "https://ziel.example";
   targetInput.title = entry.target.note || "";
-  targetInput.value = state.target || $("#scan-target")?.value || "";
+  targetInput.value = state.engagement.target || $("#scan-target")?.value || "";
   renderToolOptions();
   $("#run-start").disabled = envs.length === 0;
   $("#tool-run-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -431,13 +479,14 @@ async function startToolSession(event) {
   if (event) event.preventDefault();
   const target = $("#run-target").value.trim();
   if (!target) { $("#run-target").focus(); return; }
-  if (!$("#authorized").checked && !state.authorized) {
-    appendSession("t-line-err", "[BLOCKIERT] Autorisierung im Engagement bestaetigen.");
+  if (!state.engagement) {
+    appendSession("t-line-err", "[BLOCKIERT] Serverseitiges Engagement erforderlich.");
     return;
   }
   const envOpt = $("#run-env").selectedOptions[0];
   const body = {
-    authorized: true,
+    engagementId: state.engagement.id,
+    sessionToken: state.loginSession.token,
     tool: state.selectedTool,
     target,
     env: envOpt?.value,
@@ -532,8 +581,8 @@ function updateReconBar() {
     sel.append(opt);
   }
   if (current) sel.value = current;
-  $("#recon-start").disabled = envs.length === 0;
-  if (!$("#recon-target").value) $("#recon-target").value = state.target || $("#scan-target")?.value || "";
+  $("#recon-start").disabled = envs.length === 0 || !state.engagement;
+  if (!$("#recon-target").value) $("#recon-target").value = state.engagement?.target || $("#scan-target")?.value || "";
 }
 
 function envAvailableTools(env, distro) {
@@ -544,8 +593,8 @@ function envAvailableTools(env, distro) {
 async function runReconBatch() {
   const target = $("#recon-target").value.trim();
   if (!target) { $("#recon-target").focus(); return; }
-  if (!state.authorized && !$("#authorized")?.checked) {
-    $("#recon-hint").textContent = "Autorisierung im Engagement bestaetigen.";
+  if (!state.engagement) {
+    $("#recon-hint").textContent = "Serverseitiges Engagement erforderlich.";
     return;
   }
   const envOpt = $("#recon-env").selectedOptions[0];
@@ -564,7 +613,7 @@ async function runReconBatch() {
     const response = await fetch("/api/recon-runs", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ authorized: true, target, env, distro, tools }),
+      body: JSON.stringify({ engagementId: state.engagement.id, sessionToken: state.loginSession.token, target, env, distro, tools }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Recon konnte nicht gestartet werden.");
@@ -637,6 +686,58 @@ function applyToolFilter() {
   });
 }
 
+function updatePhaseGate() {
+  const status = $("#phase-gate-status");
+  const button = $("#phase-advance");
+  if (!status || !button) return;
+  const phase = state.activePhase;
+  const engagement = state.engagement;
+  if (!engagement || phase == null) {
+    status.textContent = "Engagement erforderlich";
+    button.disabled = true;
+    button.textContent = "Phase freigeben";
+    return;
+  }
+  if (phase <= engagement.unlockedPhase) {
+    status.textContent = `Phase ${phase} freigegeben (${engagement.role})`;
+    button.disabled = true;
+    button.textContent = "Phase freigegeben";
+    return;
+  }
+  if (phase === engagement.unlockedPhase + 1) {
+    status.textContent = `Phase ${phase} bereit zur Freigabe`;
+    button.disabled = false;
+    button.textContent = `Phase ${phase} freigeben`;
+    return;
+  }
+  status.textContent = `Zuerst Phase ${engagement.unlockedPhase + 1} freigeben`;
+  button.disabled = true;
+  button.textContent = "Phase freigeben";
+}
+
+async function advancePhase() {
+  const engagement = state.engagement;
+  const phase = state.activePhase;
+  if (!engagement || phase !== engagement.unlockedPhase + 1) return;
+  const button = $("#phase-advance");
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/engagements/${engagement.id}/phases`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phase, sessionToken: state.loginSession.token }),
+    });
+    const updated = await response.json();
+    if (!response.ok) throw new Error(updated.error || "Phase konnte nicht freigegeben werden.");
+    state.engagement = updated;
+    setConsentBadge(updated.target);
+    renderTools(state.tools);
+  } catch (error) {
+    $("#phase-gate-status").textContent = error.message;
+    updatePhaseGate();
+  }
+}
+
 // ── Wiring ────────────────────────────────────────────────────────────────────
 document.addEventListener("click", (event) => {
   const nav = event.target.closest(".nav-item");
@@ -647,6 +748,7 @@ document.addEventListener("click", (event) => {
     document.querySelectorAll(".phase-tab").forEach((t) => t.classList.toggle("active", t === phaseTab));
     applyToolFilter();
     updateReconBar();
+    updatePhaseGate();
     return;
   }
   const cancelId = event.target.closest("[data-cancel]")?.dataset.cancel;
@@ -660,6 +762,7 @@ document.addEventListener("click", (event) => {
   else if (action === "export") exportFindings();
   else if (action === "cancel-session") cancelSession();
   else if (action === "run-recon") runReconBatch();
+  else if (action === "advance-phase") advancePhase();
   else if (action === "refresh-tools") { state.tools = null; loadTools(); }
 });
 

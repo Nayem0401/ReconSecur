@@ -96,6 +96,40 @@ const PROFILES = {
     target: { kind: "domain", placeholder: "ziel.example" },
     flags: [{ key: "noreverse", flag: "--noreverse", type: "boolean", default: true, label: "Kein Reverse", desc: "Reverse-Lookups ueberspringen (schneller)." }],
   },
+  fierce: {
+    category: "🌐 Subdomain & OSINT", summary: "DNS-Nahbereich um eine Domain rekursiv abklopfen",
+    target: { kind: "domain", arg: "--domain", placeholder: "ziel.example" }, flags: [],
+  },
+  dnstwist: {
+    category: "🌐 Subdomain & OSINT", summary: "Typosquatting- und Phishing-Domains zur Zieldomain finden",
+    target: { kind: "domain", placeholder: "ziel.example" }, flags: [],
+  },
+  waybackurls: {
+    category: "🌐 Subdomain & OSINT", summary: "Archivierte URLs der Domain aus der Wayback Machine sammeln",
+    target: { kind: "domain", placeholder: "ziel.example" }, flags: [],
+  },
+  gau: {
+    category: "🌐 Subdomain & OSINT", summary: "Bekannte URLs aus mehreren Web-Archiven sammeln (Get All URLs)",
+    target: { kind: "domain", placeholder: "ziel.example" }, flags: [],
+  },
+  dmitry: {
+    category: "🔍 Recon & Fingerprinting", summary: "Whois, Netcraft, Subdomains und E-Mails buendeln",
+    target: { kind: "host", placeholder: "ziel.example" },
+    flags: [
+      { key: "whois", flag: "-w", type: "boolean", default: true, label: "Whois", desc: "Whois-Lookup durchfuehren." },
+      { key: "netcraft", flag: "-n", type: "boolean", label: "Netcraft", desc: "Netcraft.com-Infos abfragen." },
+      { key: "subdomains", flag: "-s", type: "boolean", default: true, label: "Subdomains", desc: "Bekannte Subdomains suchen." },
+      { key: "emails", flag: "-e", type: "boolean", label: "E-Mails", desc: "E-Mail-Adressen der Domain suchen." },
+    ],
+  },
+  masscan: {
+    category: "🛰️ Port & Service", summary: "Sehr schneller Portscan ueber grosse Portbereiche",
+    target: { kind: "host", placeholder: "ziel.example" },
+    flags: [
+      { key: "ports", flag: "-p", type: "string", pattern: "^\\d{1,5}(-\\d{1,5})?(,\\d{1,5}(-\\d{1,5})?)*$", default: "1-1000", placeholder: "80,443,1-1000", label: "Ports", desc: "Ports, Bereiche oder Liste." },
+      { key: "rate", flag: "--rate", type: "integer", join: "equals", min: 1, max: 100000, default: 1000, label: "Rate", desc: "Pakete pro Sekunde (hoeher = schneller, auffaelliger)." },
+    ],
+  },
 
   // 📂 Content Discovery
   gobuster: {
@@ -121,6 +155,27 @@ const PROFILES = {
     target: { kind: "url", arg: "-u", placeholder: "https://ziel.example" },
     flags: [{ key: "wordlist", flag: "-w", type: "enum", values: WORDLISTS, default: WORDLISTS[0], label: "Wortliste", desc: "Kali-Wortliste fuer Pfade." }],
   },
+  wfuzz: {
+    category: "📂 Content Discovery", summary: "HTTP-Fuzzing von Pfaden, Parametern und Headern",
+    target: { kind: "url", arg: "-u", placeholder: "https://ziel.example/FUZZ", note: "FUZZ markiert die Fuzzing-Stelle." },
+    flags: [{ key: "wordlist", flag: "-w", type: "enum", values: WORDLISTS, default: WORDLISTS[0], label: "Wortliste", desc: "Werte fuer FUZZ." }],
+  },
+  dirsearch: {
+    category: "📂 Content Discovery", summary: "Schnelle Web-Pfad-Erkennung mit Erweiterungs-Filter",
+    target: { kind: "url", arg: "-u", placeholder: "https://ziel.example" }, flags: [],
+  },
+  katana: {
+    category: "📂 Content Discovery", summary: "Web-Crawler zum Sammeln von Endpunkten und Assets",
+    target: { kind: "url", arg: "-u", placeholder: "https://ziel.example" }, flags: [],
+  },
+  gospider: {
+    category: "📂 Content Discovery", summary: "Schneller Web-Crawler fuer Links und JS-Endpunkte",
+    target: { kind: "url", arg: "-s", placeholder: "https://ziel.example" }, flags: [],
+  },
+  arjun: {
+    category: "📂 Content Discovery", summary: "Versteckte HTTP-Parameter automatisiert entdecken",
+    target: { kind: "url", arg: "-u", placeholder: "https://ziel.example" }, flags: [],
+  },
 
   // 🛡️ Vulnerability Scanning
   nikto: {
@@ -138,6 +193,14 @@ const PROFILES = {
     target: { kind: "url", arg: "--url", placeholder: "https://ziel.example" },
     flags: [{ key: "enumerate", flag: "-e", type: "enum", values: ["vp", "vt", "u"], default: "vp", label: "Enumerate", desc: "vp=Vuln-Plugins, vt=Vuln-Themes, u=User." }],
   },
+  joomscan: {
+    category: "🛡️ Vulnerability Scanning", summary: "Joomla-Installationen auf bekannte Schwachstellen pruefen",
+    target: { kind: "url", arg: "--url", placeholder: "https://ziel.example" }, flags: [],
+  },
+  cmseek: {
+    category: "🛡️ Vulnerability Scanning", summary: "CMS erkennen und auf CMS-spezifische Schwachstellen pruefen",
+    target: { kind: "url", arg: "-u", placeholder: "https://ziel.example" }, flags: [],
+  },
 
   // 💉 Injection
   sqlmap: {
@@ -148,6 +211,18 @@ const PROFILES = {
       { key: "level", flag: "--level", type: "integer", join: "equals", min: 1, max: 5, default: 1, label: "Level (1–5)", desc: "Umfang der Tests und Parameter." },
       { key: "batch", flag: "--batch", type: "boolean", default: true, label: "Batch", desc: "Nicht-interaktiv mit Standardantworten." },
     ],
+  },
+  commix: {
+    category: "💉 Injection", summary: "OS-Command-Injection in autorisierten Zielen validieren",
+    target: { kind: "url", arg: "--url", placeholder: "https://ziel.example/?cmd=1" }, flags: [],
+  },
+  dalfox: {
+    category: "💉 Injection", summary: "XSS-Parameter automatisiert aufspueren und verifizieren",
+    prefix: ["url"], target: { kind: "url", placeholder: "https://ziel.example/?q=1" }, flags: [],
+  },
+  xsstrike: {
+    category: "💉 Injection", summary: "Kontextsensitive XSS-Erkennung mit Payload-Fuzzing",
+    target: { kind: "url", arg: "-u", placeholder: "https://ziel.example/?q=1" }, flags: [],
   },
 
   // 🔒 TLS / SSL
@@ -168,6 +243,21 @@ const PROFILES = {
     category: "🔒 TLS / SSL", summary: "TLS-Verbindung und Zertifikat untersuchen",
     prefix: ["s_client"], target: { kind: "hostport", arg: "-connect", placeholder: "ziel.example" },
     sni: true, flags: [],
+  },
+  tlsx: {
+    category: "🔒 TLS / SSL", summary: "TLS-Handshake-Daten und Zertifikate schnell einsammeln",
+    target: { kind: "host", arg: "-host", placeholder: "ziel.example" }, flags: [],
+  },
+
+  // 🕵️ Automatic Recon & Dorking
+  pagodo: {
+    category: "🕵️ Automatic Recon & Dorking", summary: "Google-Hacking-Database-Dorks automatisiert gegen die Domain pruefen",
+    target: { kind: "domain", arg: "-d", placeholder: "ziel.example" },
+    flags: [{ key: "dorkfile", flag: "-g", type: "string", placeholder: "/pfad/zur/ghdb_dorks.txt", label: "Dork-Datei", desc: "Pfad zu einer GHDB-Dork-Liste (leer = Tool-Standard)." }],
+  },
+  photon: {
+    category: "🕵️ Automatic Recon & Dorking", summary: "Crawler mit automatischer OSINT-Extraktion (E-Mails, Secrets, Endpunkte)",
+    target: { kind: "url", arg: "-u", placeholder: "https://ziel.example" }, flags: [],
   },
 
   // 🚀 HTTP Client
@@ -208,15 +298,17 @@ const PHASES = {
   2: "② Content Discovery",
   3: "③ TLS / SSL",
   4: "④ Vuln & Injection",
+  5: "⑤ Automatic Recon & Dorking",
 };
 const PHASE_BY_TOOL = {
-  // Phase 1 – die 15 staerksten Informationssammler (immer zuerst)
+  // Phase 1 – die staerksten Informationssammler (immer zuerst)
   nmap: 1, dig: 1, dnsenum: 1, dnsrecon: 1, whois: 1, subfinder: 1, sublist3r: 1,
   amass: 1, assetfinder: 1, theharvester: 1, httpx: 1, whatweb: 1, wafw00f: 1,
-  curl: 1, wget: 1,
-  gobuster: 2, ffuf: 2, dirb: 2, feroxbuster: 2,
-  sslscan: 3, sslyze: 3, "testssl.sh": 3, openssl: 3,
-  nikto: 4, nuclei: 4, wpscan: 4, sqlmap: 4,
+  curl: 1, wget: 1, fierce: 1, dnstwist: 1, waybackurls: 1, gau: 1, dmitry: 1, masscan: 1,
+  gobuster: 2, ffuf: 2, dirb: 2, feroxbuster: 2, wfuzz: 2, dirsearch: 2, katana: 2, gospider: 2, arjun: 2,
+  sslscan: 3, sslyze: 3, "testssl.sh": 3, openssl: 3, tlsx: 3,
+  nikto: 4, nuclei: 4, wpscan: 4, sqlmap: 4, joomscan: 4, cmseek: 4, commix: 4, dalfox: 4, xsstrike: 4,
+  pagodo: 5, photon: 5,
 };
 
 function usageLine(f) {
