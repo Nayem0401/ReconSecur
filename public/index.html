@@ -3,103 +3,234 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Aether workspace for authorized web security assessments">
-  <title>Aether Assessment Console</title>
+  <meta name="description" content="Aether Assessment Console — authorized web security assessments">
+  <title>Aether — Assessment Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <aside class="rail">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">A</span>
-      <div><strong>Aether</strong><span>Assessment Console</span></div>
-    </div>
-    <nav aria-label="Bereiche">
-      <a class="nav-link active" href="#engagement">Engagement</a>
-      <a class="nav-link" href="#findings">Findings</a>
-      <a class="nav-link" href="#pipeline">Pipeline</a>
-    </nav>
-    <div class="rail-status">
-      <span class="status-dot"></span>
-      <div><strong>Local engine</strong><span>Passive checks only</span></div>
-    </div>
-  </aside>
 
-  <main>
-    <header class="topbar">
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">AETHER</div>
+    <div class="logo-sub">Assessment Console</div>
+    <div class="consent-badge unverified" id="consent-status">
+      <span class="consent-dot"></span>
+      <span id="consent-text">Kein Engagement</span>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-section">Workspace</div>
+    <div class="nav-item active" data-page="dashboard"><span class="nav-icon">◉</span> Dashboard</div>
+    <div class="nav-item" data-page="scan"><span class="nav-icon">⊕</span> Engagement</div>
+    <div class="nav-item" data-page="findings"><span class="nav-icon">◈</span> Findings</div>
+    <div class="nav-item" data-page="tools"><span class="nav-icon">⚙</span> Tools</div>
+
+    <div class="nav-section">Kontext</div>
+    <div class="nav-item" data-page="pipeline"><span class="nav-icon">≡</span> Pipeline</div>
+  </div>
+
+  <div class="tier-info">
+    <div class="tier-label">Engine</div>
+    <div class="tier-badge">Local — Read-only</div>
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- Dashboard -->
+  <div id="page-dashboard">
+    <div class="page-header">
       <div>
-        <p class="eyebrow">SECUREOS V4 / ACTIVE WORKSPACE</p>
-        <h1>Authorized web assessment</h1>
+        <h1 class="page-title">Dashboard</h1>
+        <div class="page-sub" id="engagement-sub">Kein aktives Engagement — Ziel + Autorisierung erforderlich</div>
       </div>
-      <span class="mode">Read-only</span>
-    </header>
+      <button class="btn btn-primary" data-action="open-consent">+ Neues Engagement</button>
+    </div>
 
-    <section class="workspace" id="engagement" aria-labelledby="engagement-title">
-      <div class="section-heading">
-        <div><p class="step-label">01 / SCOPE</p><h2 id="engagement-title">Start an engagement</h2></div>
-        <p>One target, explicit authorization, auditable output.</p>
+    <div class="phase-bar" id="phase-bar">
+      <div class="phase-step active"><div class="phase-dot">1</div><div class="phase-name">Recon</div></div>
+      <div class="phase-step"><div class="phase-dot">2</div><div class="phase-name">Fingerprint</div></div>
+      <div class="phase-step"><div class="phase-dot">3</div><div class="phase-name">HTTP/Header</div></div>
+      <div class="phase-step"><div class="phase-dot">4</div><div class="phase-name">TLS</div></div>
+      <div class="phase-step"><div class="phase-dot">5</div><div class="phase-name">Analyse</div></div>
+      <div class="phase-step locked"><div class="phase-dot">⛔</div><div class="phase-name">Enum</div></div>
+      <div class="phase-step locked"><div class="phase-dot">⛔</div><div class="phase-name">Exploit</div></div>
+      <div class="phase-step"><div class="phase-dot">8</div><div class="phase-name">Report</div></div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-label">Findings</div>
+        <div class="card-value" id="m-findings">0</div>
+        <div class="card-sub">Aus letzter Analyse</div>
       </div>
+      <div class="card">
+        <div class="card-label">High / Critical</div>
+        <div class="card-value" style="color: var(--red)" id="m-critical">0</div>
+        <div class="card-sub">Priorisiert pruefen</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Kali-Tools (WSL2)</div>
+        <div class="card-value" id="m-kali">–</div>
+        <div class="card-sub" id="m-kali-sub">Erkennung laeuft…</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Windows-Tools</div>
+        <div class="card-value" id="m-windows">–</div>
+        <div class="card-sub" id="m-windows-sub">Erkennung laeuft…</div>
+      </div>
+    </div>
 
-      <form id="assessment-form" class="assessment-form">
-        <label class="target-field">
-          <span>HTTP(S) target</span>
-          <input id="target" name="target" type="text" inputmode="url" autocomplete="url" placeholder="https://example.com" required maxlength="2048">
-        </label>
-        <label class="authorization">
-          <input id="authorized" name="authorized" type="checkbox" required>
-          <span>I confirm that I own this target or have written authorization to assess it.</span>
-        </label>
-        <button id="run-button" type="submit">Run passive assessment</button>
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <div class="t-btn t-close"></div>
+        <div class="t-btn t-min"></div>
+        <div class="t-btn t-max"></div>
+        <div class="t-title" id="t-title">aether — idle</div>
+      </div>
+      <div class="terminal-body">
+<pre id="terminal-output"><span class="t-prompt">aether@local</span> ~ % <span class="t-cursor"></span>
+
+<span class="t-line-info">[Aether] Consent-gated, passive Web-Sicherheitsbewertung.</span>
+<span class="t-line-warn">Kein aktives Engagement. "Neues Engagement" zum Start.</span>
+</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Engagement / Scan -->
+  <div id="page-scan" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Engagement</div>
+        <div class="page-sub">Ein Ziel, ausdrueckliche Autorisierung, auditierbares Ergebnis.</div>
+      </div>
+    </div>
+
+    <div class="scan-panel">
+      <form id="assessment-form" class="scan-row">
+        <div class="field">
+          <label>HTTP(S)-Ziel</label>
+          <input type="text" class="wide" id="scan-target" inputmode="url" autocomplete="url" placeholder="https://example.com" maxlength="2048" />
+        </div>
+        <div class="field authorization">
+          <label>Autorisierung</label>
+          <label class="checkbox"><input type="checkbox" id="authorized" /> Ich bin autorisiert, dieses Ziel zu pruefen.</label>
+        </div>
+        <button class="btn btn-primary" id="scan-btn" type="submit">▶ Passive Analyse</button>
       </form>
+    </div>
 
-      <div class="run-state" id="run-state" aria-live="polite">
-        <div class="state-head"><span id="state-label">Ready</span><span id="state-time">No assessment started</span></div>
-        <div class="progress-track"><span id="progress-bar"></span></div>
-        <ol class="steps">
-          <li data-step="scope"><span>1</span>Scope validation</li>
-          <li data-step="dns"><span>2</span>DNS resolution</li>
-          <li data-step="http"><span>3</span>HTTP and headers</li>
-          <li data-step="tls"><span>4</span>TLS posture</li>
-          <li data-step="report"><span>5</span>Finding synthesis</li>
-        </ol>
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <div class="t-btn t-close"></div>
+        <div class="t-btn t-min"></div>
+        <div class="t-btn t-max"></div>
+        <div class="t-title" id="scan-t-title">scan — idle</div>
       </div>
-    </section>
+      <div class="terminal-body">
+<pre id="scan-output"><span class="t-line-info">Bereit. Ziel eingeben, Autorisierung bestaetigen, starten.</span>
+</pre>
+      </div>
+    </div>
+  </div>
 
-    <section class="results" id="findings" aria-labelledby="findings-title">
-      <div class="section-heading">
-        <div><p class="step-label">02 / FINDINGS</p><h2 id="findings-title">Evidence before claims</h2></div>
-        <button class="secondary" id="export-button" type="button" disabled>Export JSON</button>
+  <!-- Findings -->
+  <div id="page-findings" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Findings</div>
+        <div class="page-sub">Evidenzbasiert — nur beobachtete Nachweise.</div>
       </div>
+      <button class="btn btn-secondary" id="export-btn" disabled data-action="export">Export JSON</button>
+    </div>
 
-      <div class="metrics" id="metrics">
-        <div><span>Target status</span><strong id="metric-status">--</strong></div>
-        <div><span>Findings</span><strong id="metric-total">0</strong></div>
-        <div><span>High / Medium</span><strong id="metric-priority">0</strong></div>
-        <div><span>Resolved IPs</span><strong id="metric-addresses">0</strong></div>
+    <div class="findings-card">
+      <div class="findings-header">
+        <span class="findings-title">Alle Findings</span>
+        <span style="font-size:12px;color:var(--text3)" id="findings-count">0 Findings</span>
       </div>
+      <table>
+        <thead>
+          <tr><th>Severity</th><th>Finding</th><th>Evidenz</th><th>Empfehlung</th></tr>
+        </thead>
+        <tbody id="findings-tbody">
+          <tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px">Noch keine Findings — Analyse ausfuehren.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-      <div id="empty-state" class="empty-state">
-        <span class="empty-index">00</span>
-        <div><strong>No evidence collected</strong><p>Run an authorized assessment to populate this workspace.</p></div>
+  <!-- Tools -->
+  <div id="page-tools" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Tool-Inventar</div>
+        <div class="page-sub">Erkennung parallel unter Windows und WSL2. Ausfuehrung bleibt allowlist-gated.</div>
       </div>
-      <div id="finding-list" class="finding-list" hidden></div>
-    </section>
+      <button class="btn btn-secondary" id="tools-refresh" data-action="refresh-tools">↻ Aktualisieren</button>
+    </div>
 
-    <section class="pipeline" id="pipeline" aria-labelledby="pipeline-title">
-      <div class="section-heading">
-        <div><p class="step-label">03 / NEXT ACTIONS</p><h2 id="pipeline-title">Controlled pipeline</h2></div>
-        <p>Kali execution remains gated and allowlisted.</p>
+    <div class="scan-panel">
+      <div class="scan-row">
+        <div class="field" style="flex:1">
+          <label>Filter</label>
+          <input type="text" id="tools-filter" placeholder="z. B. nmap, sqlmap, curl…" />
+        </div>
       </div>
-      <div class="pipeline-grid">
-        <article><span>Active</span><h3>Passive web posture</h3><p>DNS, HTTP status, redirects, security headers and certificate metadata.</p></article>
-        <article><span>Prepared</span><h3>Kali tool adapter</h3><p>SecureOS phase definitions are imported. Tool execution needs verified consent and explicit allowlists.</p></article>
-        <article><span>Review</span><h3>Manual validation</h3><p>Confirm evidence, remove false positives and record reproducible remediation guidance.</p></article>
+    </div>
+
+    <div id="tools-container" class="tools-container">
+      <div class="empty-note">Inventar wird geladen…</div>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div id="page-pipeline" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Kontrollierte Pipeline</div>
+        <div class="page-sub">Kali-Ausfuehrung bleibt gated und allowlist-basiert.</div>
       </div>
-      <ol class="next-steps" id="next-steps"></ol>
-    </section>
-  </main>
+    </div>
+    <div class="cards-grid">
+      <div class="card"><div class="card-label">Aktiv</div><div class="card-value" style="font-size:18px">Passive Web-Posture</div><div class="card-sub">DNS, HTTP-Status, Redirects, Security-Header, Zertifikats-Metadaten.</div></div>
+      <div class="card"><div class="card-label">Vorbereitet</div><div class="card-value" style="font-size:18px">Kali-Tool-Adapter</div><div class="card-sub">Erkennung aktiv. Ausfuehrung braucht Consent, Scope, Allowlist, Audit.</div></div>
+      <div class="card"><div class="card-label">Review</div><div class="card-value" style="font-size:18px">Manuelle Validierung</div><div class="card-sub">Evidenz bestaetigen, False Positives entfernen, Remediation dokumentieren.</div></div>
+    </div>
+    <div class="findings-card" style="margin-top:24px">
+      <div class="findings-header"><span class="findings-title">Naechste Schritte</span></div>
+      <ol class="next-steps" id="next-steps"><li>Autorisiertes Ziel eingeben und passive Analyse starten.</li></ol>
+    </div>
+  </div>
+
+</main>
+
+<!-- Consent Modal -->
+<div class="modal-overlay" id="consent-modal">
+  <div class="modal">
+    <div class="modal-title">Engagement starten</div>
+    <div class="modal-sub">Alle Analysen erfordern eine bestaetigte Autorisierung.</div>
+    <div class="modal-steps">
+      <div class="modal-step"><div class="modal-step-num">1</div><div class="modal-step-text">HTTP(S)-Ziel eingeben (keine privaten/Loopback-Adressen ohne Freigabe).</div></div>
+      <div class="modal-step"><div class="modal-step-num">2</div><div class="modal-step-text">Autorisierung bestaetigen — nur eigene oder freigegebene Ziele.</div></div>
+      <div class="modal-step"><div class="modal-step-num">3</div><div class="modal-step-text">Passive Analyse startet (DNS, HTTP, Header, TLS).</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+      <div class="field"><label>Ziel</label><input type="text" id="modal-domain" placeholder="https://example.com" style="width:100%" /></div>
+      <label class="checkbox"><input type="checkbox" id="modal-authorized" /> Ich bin autorisiert, dieses Ziel zu pruefen.</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" data-action="close-consent">Abbrechen</button>
+      <button class="btn btn-primary" data-action="verify-consent">Bestaetigen & Starten</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

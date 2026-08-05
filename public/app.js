@@ -1,118 +1,252 @@
-const form = document.querySelector("#assessment-form");
-const runButton = document.querySelector("#run-button");
-const stateLabel = document.querySelector("#state-label");
-const stateTime = document.querySelector("#state-time");
-const progressBar = document.querySelector("#progress-bar");
-const findingList = document.querySelector("#finding-list");
-const emptyState = document.querySelector("#empty-state");
-const exportButton = document.querySelector("#export-button");
-const nextSteps = document.querySelector("#next-steps");
-let latestAssessment = null;
+"use strict";
 
-const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const state = {
+  target: null,
+  authorized: false,
+  assessment: null,
+  tools: null,
+};
 
-function setProgress(index, label) {
-  const steps = [...document.querySelectorAll(".steps li")];
-  steps.forEach((step, stepIndex) => {
-    step.classList.toggle("done", stepIndex < index);
-    step.classList.toggle("active", stepIndex === index);
+const $ = (sel) => document.querySelector(sel);
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('[id^="page-"]').forEach((p) => { p.style.display = "none"; });
+  const page = document.getElementById("page-" + name);
+  if (page) page.style.display = "block";
+  document.querySelectorAll(".nav-item").forEach((i) => {
+    i.classList.toggle("active", i.dataset.page === name);
   });
-  progressBar.style.width = `${Math.min((index / steps.length) * 100, 100)}%`;
-  stateLabel.textContent = label;
+  if (name === "tools" && !state.tools) loadTools();
 }
 
-function setMetric(id, value) {
-  document.querySelector(id).textContent = value;
+// ── Terminal ──────────────────────────────────────────────────────────────────
+function appendTerminal(targetId, cls, text) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  const span = document.createElement("span");
+  if (cls) span.className = cls;
+  span.textContent = text + "\n";
+  el.appendChild(span);
+  el.parentElement.scrollTop = el.parentElement.scrollHeight;
 }
 
-function renderFindings(assessment) {
-  const priorityCount = assessment.findings.filter(({ severity }) => ["high", "medium"].includes(severity)).length;
-  setMetric("#metric-status", assessment.summary.status);
-  setMetric("#metric-total", assessment.findings.length);
-  setMetric("#metric-priority", priorityCount);
-  setMetric("#metric-addresses", assessment.summary.addresses.length);
+// ── Consent Modal ─────────────────────────────────────────────────────────────
+function openConsent() { $("#consent-modal").classList.add("open"); }
+function closeConsent() { $("#consent-modal").classList.remove("open"); }
 
-  findingList.replaceChildren();
-  for (const item of assessment.findings) {
-    const article = document.createElement("article");
-    article.className = "finding";
+function verifyConsent() {
+  const target = $("#modal-domain").value.trim();
+  const authorized = $("#modal-authorized").checked;
+  if (!target) { $("#modal-domain").focus(); return; }
+  if (!authorized) { $("#modal-authorized").focus(); return; }
 
-    const severity = document.createElement("span");
-    severity.className = `severity ${item.severity}`;
-    severity.textContent = item.severity;
+  state.target = target;
+  state.authorized = true;
+  $("#scan-target").value = target;
+  $("#authorized").checked = true;
+  setConsentBadge(target);
+  closeConsent();
+  showPage("scan");
+  appendTerminal("scan-output", "t-line-ok", `[ENGAGEMENT] Ziel gesetzt: ${target}`);
+  appendTerminal("scan-output", "t-line-info", "[BEREIT] Passive Analyse kann gestartet werden.");
+}
 
-    const identity = document.createElement("div");
-    const title = document.createElement("h3");
-    title.textContent = item.title;
-    const evidence = document.createElement("p");
-    evidence.textContent = item.evidence;
-    identity.append(title, evidence);
+function setConsentBadge(target) {
+  const badge = $("#consent-status");
+  badge.className = "consent-badge verified";
+  $("#consent-text").textContent = target;
+  $("#engagement-sub").textContent = `Aktiv: ${target} — passive Analyse bereit`;
+}
 
-    const recommendation = document.createElement("p");
-    recommendation.className = "recommendation";
-    recommendation.textContent = item.recommendation;
-    article.append(severity, identity, recommendation);
-    findingList.append(article);
+// ── Assessment ────────────────────────────────────────────────────────────────
+async function runAssessment(event) {
+  if (event) event.preventDefault();
+  const target = $("#scan-target").value.trim();
+  const authorized = $("#authorized").checked;
+  const btn = $("#scan-btn");
+  const outId = "scan-output";
+
+  if (!target) { $("#scan-target").focus(); return; }
+  if (!authorized) {
+    appendTerminal(outId, "t-line-err", "[BLOCKIERT] Autorisierung nicht bestaetigt.");
+    return;
   }
 
-  emptyState.hidden = assessment.findings.length > 0;
-  findingList.hidden = assessment.findings.length === 0;
-  nextSteps.replaceChildren(...assessment.nextSteps.map((text) => {
-    const item = document.createElement("li");
-    item.textContent = text;
-    return item;
-  }));
-}
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  runButton.disabled = true;
-  runButton.textContent = "Assessment running...";
-  stateTime.textContent = new Date().toLocaleTimeString("de-DE");
+  state.target = target;
+  setConsentBadge(target);
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Analyse laeuft…";
+  $("#scan-t-title").textContent = `scan — ${target}`;
+  appendTerminal(outId, "t-prompt", `aether@local ~ % assess ${target}`);
+  appendTerminal(outId, "t-line-info", "[1/4] Scope-Validierung…");
 
   try {
-    setProgress(0, "Validating authorization");
-    await wait(200);
-    setProgress(1, "Resolving target");
-    await wait(200);
-    setProgress(2, "Inspecting web posture");
-
     const response = await fetch("/api/assessments", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        target: document.querySelector("#target").value,
-        authorized: document.querySelector("#authorized").checked,
-      }),
+      body: JSON.stringify({ target, authorized: true }),
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Assessment failed.");
+    if (!response.ok) throw new Error(result.error || "Analyse fehlgeschlagen.");
 
-    setProgress(3, "Reviewing TLS evidence");
-    await wait(250);
-    latestAssessment = result;
+    appendTerminal(outId, "t-line-info", `[2/4] DNS: ${result.summary.addresses.length} Adresse(n).`);
+    appendTerminal(outId, "t-line-info", `[3/4] HTTP-Status ${result.summary.status} — ${result.summary.finalUrl}`);
+    const tlsLine = result.summary.tls?.error
+      ? `[4/4] TLS-Fehler: ${result.summary.tls.error}`
+      : `[4/4] TLS: ${result.summary.tls?.protocol || "n/a"} (${result.summary.tls?.issuer || "?"})`;
+    appendTerminal(outId, result.summary.tls?.error ? "t-line-warn" : "t-line-info", tlsLine);
+
+    state.assessment = result;
     renderFindings(result);
-    setProgress(5, "Assessment complete");
-    progressBar.style.width = "100%";
-    stateTime.textContent = `ID ${result.assessmentId.slice(0, 8)} / ${new Date(result.completedAt).toLocaleTimeString("de-DE")}`;
-    exportButton.disabled = false;
-    document.querySelector("#findings").scrollIntoView({ behavior: "smooth" });
+    const critical = result.findings.filter((f) => ["critical", "high"].includes(f.severity)).length;
+    appendTerminal(outId, "t-line-ok", `[FERTIG] ${result.findings.length} Findings, davon ${critical} High/Critical.`);
+    showPage("findings");
   } catch (error) {
-    setProgress(0, "Assessment blocked");
-    stateTime.textContent = error.message;
-    progressBar.style.width = "0";
+    appendTerminal(outId, "t-line-err", `[FEHLER] ${error.message}`);
   } finally {
-    runButton.disabled = false;
-    runButton.textContent = "Run passive assessment";
+    btn.disabled = false;
+    btn.textContent = original;
   }
+}
+
+function renderFindings(assessment) {
+  const tbody = $("#findings-tbody");
+  const findings = assessment.findings;
+  $("#findings-count").textContent = `${findings.length} Findings`;
+  $("#m-findings").textContent = findings.length;
+  $("#m-critical").textContent = findings.filter((f) => ["critical", "high"].includes(f.severity)).length;
+  $("#export-btn").disabled = findings.length === 0;
+
+  if (!findings.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px">Keine Findings.</td></tr>';
+    return;
+  }
+
+  tbody.replaceChildren();
+  for (const f of findings) {
+    const tr = document.createElement("tr");
+    const sev = document.createElement("td");
+    sev.innerHTML = `<span class="sev ${f.severity}"></span>`;
+    sev.querySelector(".sev").textContent = f.severity;
+
+    const title = document.createElement("td");
+    const t = document.createElement("div"); t.className = "finding-title"; t.textContent = f.title;
+    const id = document.createElement("div"); id.className = "finding-sub"; id.textContent = f.id;
+    title.append(t, id);
+
+    const ev = document.createElement("td");
+    ev.className = "finding-sub"; ev.textContent = f.evidence;
+
+    const rec = document.createElement("td");
+    rec.style.fontSize = "12px"; rec.style.color = "var(--text2)"; rec.textContent = f.recommendation;
+
+    tr.append(sev, title, ev, rec);
+    tbody.append(tr);
+  }
+}
+
+function exportFindings() {
+  if (!state.assessment) return;
+  const blob = new Blob([JSON.stringify(state.assessment, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `aether-assessment-${state.assessment.assessmentId}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Tools Inventory ───────────────────────────────────────────────────────────
+async function loadTools() {
+  const container = $("#tools-container");
+  container.innerHTML = '<div class="empty-note">Inventar wird geladen… (WSL2-Erkennung kann einige Sekunden dauern)</div>';
+  try {
+    const response = await fetch("/api/tools");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Inventar fehlgeschlagen.");
+    state.tools = data;
+    renderTools(data);
+    updateToolMetrics(data);
+  } catch (error) {
+    container.innerHTML = `<div class="empty-note">Fehler: ${error.message}</div>`;
+  }
+}
+
+function updateToolMetrics(data) {
+  const distros = Object.entries(data.wsl || {});
+  const kali = distros.find(([name]) => /kali/i.test(name)) || distros[0];
+  if (kali) {
+    $("#m-kali").textContent = kali[1].count;
+    $("#m-kali-sub").textContent = `${kali[0]} · ${kali[1].execReady.length} allowlisted`;
+  } else {
+    $("#m-kali").textContent = "0";
+    $("#m-kali-sub").textContent = "Keine WSL2-Distro";
+  }
+  $("#m-windows").textContent = data.windows.count;
+  $("#m-windows-sub").textContent = `${data.windows.execReady.length} allowlisted`;
+}
+
+function toolGroup(title, meta, tools, execReady) {
+  const ready = new Set(execReady);
+  const group = document.createElement("div");
+  group.className = "tool-group";
+  const head = document.createElement("div");
+  head.className = "tool-group-head";
+  head.innerHTML = `<div class="tool-group-title">${title}</div><div class="tool-group-meta">${meta}</div>`;
+  const list = document.createElement("div");
+  list.className = "tool-list";
+  for (const name of tools) {
+    const chip = document.createElement("span");
+    chip.className = "tool-chip" + (ready.has(name) ? " ready" : "");
+    chip.dataset.name = name;
+    chip.textContent = name;
+    list.append(chip);
+  }
+  group.append(head, list);
+  return group;
+}
+
+function renderTools(data) {
+  const container = $("#tools-container");
+  container.replaceChildren();
+  container.append(toolGroup(
+    "⊞ Windows",
+    `${data.windows.count} Tools · ${data.windows.execReady.length} allowlisted`,
+    data.windows.tools, data.windows.execReady,
+  ));
+  for (const [distro, info] of Object.entries(data.wsl || {})) {
+    container.append(toolGroup(
+      `🐧 ${distro}`,
+      `${info.count} Tools · ${info.execReady.length} allowlisted`,
+      info.tools, info.execReady,
+    ));
+  }
+  applyToolFilter();
+}
+
+function applyToolFilter() {
+  const q = ($("#tools-filter").value || "").trim().toLowerCase();
+  document.querySelectorAll(".tool-chip").forEach((chip) => {
+    chip.classList.toggle("hidden", q && !chip.dataset.name.includes(q));
+  });
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────────
+document.addEventListener("click", (event) => {
+  const nav = event.target.closest(".nav-item");
+  if (nav) { showPage(nav.dataset.page); return; }
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  if (action === "open-consent") openConsent();
+  else if (action === "close-consent") closeConsent();
+  else if (action === "verify-consent") verifyConsent();
+  else if (action === "export") exportFindings();
+  else if (action === "refresh-tools") { state.tools = null; loadTools(); }
 });
 
-exportButton.addEventListener("click", () => {
-  if (!latestAssessment) return;
-  const blob = new Blob([JSON.stringify(latestAssessment, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `aether-assessment-${latestAssessment.assessmentId}.json`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+document.addEventListener("DOMContentLoaded", () => {
+  $("#assessment-form").addEventListener("submit", runAssessment);
+  $("#tools-filter").addEventListener("input", applyToolFilter);
+  $("#consent-modal").addEventListener("click", (e) => { if (e.target.id === "consent-modal") closeConsent(); });
+  loadTools();
 });
